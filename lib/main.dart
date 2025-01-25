@@ -1,110 +1,217 @@
+/**************************** Imports ****************************/
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
+import 'package:spotbuddy/firebase_options.dart';
+import 'package:spotbuddy/screens/GoogleAuthScreen.dart';
+import 'package:spotbuddy/screens/HomeScreen.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:spotbuddy/screens/PhoneAuthScreen.dart';
+import 'package:spotbuddy/screens/basicDetailScreen.dart';
+import 'package:spotbuddy/screens/gender.dart';
+/**************************** Imports ****************************/
 
-void main() {
-  runApp(const MyApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+    );
+    // await FirebaseAppCheck.instance.activate(
+    //   // You can also use a `ReCaptchaEnterpriseProvider` provider instance as an
+    //   // argument for `webProvider`
+    //   webProvider: ReCaptchaV3Provider('recaptcha-v3-site-key'),
+    //   // Default provider for Android is the Play Integrity provider. You can use the "AndroidProvider" enum to choose
+    //   // your preferred provider. Choose from:
+    //   // 1. Debug provider
+    //   // 2. Safety Net provider
+    //   // 3. Play Integrity provider
+    //   androidProvider: AndroidProvider.debug,
+    //   // Default provider for iOS/macOS is the Device Check provider. You can use the "AppleProvider" enum to choose
+    //   // your preferred provider. Choose from:
+    //   // 1. Debug provider
+    //   // 2. Device Check provider
+    //   // 3. App Attest provider
+    //   // 4. App Attest provider with fallback to Device Check provider (App Attest provider is only available on iOS 14.0+, macOS 14.0+)
+    //   appleProvider: AppleProvider.appAttest,
+    // );
+  } catch (e) {
+    print("Error initializing Firebase: $e");
+  }
+  runApp(const SpotBuddyApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class SpotBuddyApp extends StatelessWidget {
+  const SpotBuddyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      color: const Color(0xffDCDBE2),
+      theme: _buildTheme(Brightness.light),
+      title: 'SpotBuddy',
+      home: AuthenticationWrapper(),
+      routes: {
+        '/home': (context) => HomeScreen(),
+        '/basicDetailsScreen': (context) => Basicdetailscreen(),
+        '/genderScreen': (context) => GenderSelectionScreen(),
+        '/phoneAuth': (context) => PhoneAuthScreen(),
+        '/AuthScreen': (context) => GoogleAuthscreen(),
+      },
+    );
+  }
+
+  ThemeData _buildTheme(brightness) {
+    var baseTheme = ThemeData(brightness: brightness);
+
+    return baseTheme.copyWith(
+      textTheme: GoogleFonts.latoTextTheme(baseTheme.textTheme),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
+class AuthenticationWrapper extends StatefulWidget {
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  _AuthenticationWrapperState createState() => _AuthenticationWrapperState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
+  var mLatitude = 0.0;
+  var mLongitude = 0.0;
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  @override
+  void initState() {
+    super.initState();
+    print("checking Location:");
+    _checkLocationPermission();
+  }
+
+  Future<void> _checkLocationPermission() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Check if location services are enabled
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      await Geolocator.openLocationSettings();
+    }
+
+    // Check and request permission
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        // Permission denied, handle accordingly
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      // Permissions are permanently denied
+      return Future.error(
+          'Location permissions are permanently denied, cannot request.');
+    }
+
+    // Permission granted, proceed to get the location
+    Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
+    mLatitude = position.latitude;
+    mLongitude = position.longitude;
+    print('Current location: ${position.latitude}, ${position.longitude}');
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(
+            child: LoadingAnimationWidget.fallingDot(
+              color: const Color(0xff2226BA),
+              size: 50,
+            ),
+          );
+        } else if (snapshot.hasData) {
+          return FutureBuilder<DocumentSnapshot>(
+            future: FirebaseFirestore.instance
+                .collection('users')
+                .doc(snapshot.data!.uid)
+                .get(),
+            builder: (context, AsyncSnapshot<DocumentSnapshot> userSnapshot) {
+              if (userSnapshot.connectionState == ConnectionState.waiting) {
+                return Center(
+                  child: CircularProgressIndicator(),
+                );
+              }
+              if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                bool isPhoneVerified =
+                    userSnapshot.data!['isPhoneNumberVerified'] ?? false;
+                bool isBasicDetails =
+                    userSnapshot.data!['isBasicDetails'] ?? false;
+                if (isPhoneVerified && isBasicDetails) {
+                  FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(snapshot.data!.uid)
+                      .update(
+                          {'CurrentLat': mLatitude, 'CurrentLong': mLongitude});
+                  return HomeScreen.withOptions(
+                      mLatitude, mLongitude, userSnapshot.data!['userID']);
+                } else if (isPhoneVerified && !isBasicDetails) {
+                  return GenderSelectionScreen();
+                } else if (!isPhoneVerified) {
+                  return PhoneAuthScreen.withOptions(
+                      mLatitude, mLongitude, userSnapshot.data!['userID']);
+                }
+              }
+              return GoogleAuthscreen();
+            },
+          );
+        } else {
+          return GoogleAuthscreen();
+        }
+      },
+    );
+  }
+}
+
+class FullScreenNoInternetCard extends StatelessWidget {
+  const FullScreenNoInternetCard({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
+      backgroundColor: Colors.black.withOpacity(0.7),
+      body: const Center(
+        child: Card(
+          color: Colors.white,
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.wifi_off, color: Colors.red, size: 60),
+                SizedBox(width: 40),
+                Text(
+                  'No Internet Connection',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                  ),
+                ),
+              ],
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
