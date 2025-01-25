@@ -86,6 +86,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
   @override
   void initState() {
     super.initState();
+    print("checking Location:");
     _checkLocationPermission();
   }
 

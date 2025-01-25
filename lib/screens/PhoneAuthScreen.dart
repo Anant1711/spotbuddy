@@ -16,7 +16,7 @@ class PhoneAuthScreen extends StatefulWidget {
 }
 
 class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
-  //////////////////////////////// -Variables- ////////////////////////////////
+  ///************************** Variables ****************************///
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final _formKey = GlobalKey<FormState>();
   String _verificationId = '';
@@ -25,7 +25,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   String _errorMessage = '';
   late String phoneNumber;
   bool _isOtpVisible = false; // To track whether the OTP widget should be visible
-  //////////////////////////////// -Variables- ////////////////////////////////
+  ///************************** Variables ****************************///
 
 
   // Send OTP to the phone number
