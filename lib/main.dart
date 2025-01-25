@@ -10,6 +10,8 @@ import 'package:spotbuddy/screens/GoogleAuthScreen.dart';
 import 'package:spotbuddy/screens/HomeScreen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:spotbuddy/screens/PhoneAuthScreen.dart';
+import 'package:spotbuddy/screens/basicDetailScreen.dart';
+import 'package:spotbuddy/screens/gender.dart';
 /**************************** Imports ****************************/
 
 Future<void> main() async {
@@ -58,8 +60,9 @@ class SpotBuddyApp extends StatelessWidget {
       home: AuthenticationWrapper(),
       routes: {
         '/home': (context) => HomeScreen(),
-        // '/profile': (context) => ProfileScreen(),
-        '/phoneAuth':(context) => PhoneAuthScreen(),
+        '/basicDetailsScreen': (context) => Basicdetailscreen(),
+        '/genderScreen': (context) => GenderSelectionScreen(),
+        '/phoneAuth': (context) => PhoneAuthScreen(),
         '/AuthScreen': (context) => GoogleAuthscreen(),
       },
     );
@@ -151,20 +154,23 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
               if (userSnapshot.hasData && userSnapshot.data!.exists) {
                 bool isPhoneVerified =
                     userSnapshot.data!['isPhoneNumberVerified'] ?? false;
-                if (isPhoneVerified) {
+                bool isBasicDetails =
+                    userSnapshot.data!['isBasicDetails'] ?? false;
+                if (isPhoneVerified && isBasicDetails) {
                   FirebaseFirestore.instance
                       .collection('users')
                       .doc(snapshot.data!.uid)
-                      .update({
-                    'CurrentLat':mLatitude,
-                    'CurrentLong':mLongitude
-                  });
-                  return HomeScreen.withOptions(mLatitude,mLongitude,userSnapshot.data!['userID']);
-                } else {
-                  return PhoneAuthScreen.withOptions(mLatitude, mLongitude, userSnapshot.data!['userID']);
+                      .update(
+                          {'CurrentLat': mLatitude, 'CurrentLong': mLongitude});
+                  return HomeScreen.withOptions(
+                      mLatitude, mLongitude, userSnapshot.data!['userID']);
+                } else if (isPhoneVerified && !isBasicDetails) {
+                  return GenderSelectionScreen();
+                } else if (!isPhoneVerified) {
+                  return PhoneAuthScreen.withOptions(
+                      mLatitude, mLongitude, userSnapshot.data!['userID']);
                 }
               }
-
               return GoogleAuthscreen();
             },
           );

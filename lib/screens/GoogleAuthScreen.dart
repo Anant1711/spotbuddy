@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spotbuddy/screens/HomeScreen.dart';
@@ -50,6 +51,7 @@ class _GoogleAuthscreenState extends State<GoogleAuthscreen> {
           prefs.setString("userName", currentUser.displayName ?? '');
           prefs.setString("userId", currentUser.uid);
           prefs.setString("email", currentUser.email??'');
+          prefs.setBool("isBasicDetails", false);
 
           //Creating Field on CLOUD
           await FirebaseFirestore.instance
@@ -60,6 +62,7 @@ class _GoogleAuthscreenState extends State<GoogleAuthscreen> {
             'name': currentUser.displayName ?? 'Guest',
             'email': currentUser.email,
             'isPhoneNumberVerified': false,
+            'isBasicDetails':false,
           });
         }
         Navigator.pushReplacementNamed(context, '/phoneAuth');
@@ -73,11 +76,15 @@ class _GoogleAuthscreenState extends State<GoogleAuthscreen> {
             .doc(currentUser.uid)
             .get();
         bool isPhoneVerified = userDoc['isPhoneNumberVerified'] ?? false;
+        bool isBasicDetails = userDoc['isBasicDetails'] ?? false;
 
-        if (isPhoneVerified) {
+        if (isPhoneVerified && isBasicDetails) {
           // Navigate to homepage if phone is verified
           Navigator.pushReplacementNamed(context, '/home');
-        } else {
+        }else if(isPhoneVerified && !isBasicDetails){
+          Navigator.pushReplacementNamed(context, '/genderScreen');
+        }
+        else if(!isPhoneVerified){
           // Navigate to phone authentication if phone is not verified
           Navigator.pushReplacementNamed(context, '/phoneAuth');
         }
@@ -98,13 +105,24 @@ class _GoogleAuthscreenState extends State<GoogleAuthscreen> {
 
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF000000), // Background color
+      backgroundColor: const Color(0xFFC2BCBC), // Background color
       body: Column(
         children: [
-          const Spacer(), // Pushes content to the bottom
+          const Spacer(flex: 2), // Pushes the text slightly above the center
+          Center(
+            child: Text(
+              'Spot Buddy',
+              style: GoogleFonts.alfaSlabOne(
+                fontSize: 50,
+                // Set your desired font size here
+              ),
+            ),
+          ),
+          const Spacer(flex: 3), // Pushes the rest of the content (Google button) down
           Center(
             child: ElevatedButton(
               onPressed: () {
@@ -112,7 +130,7 @@ class _GoogleAuthscreenState extends State<GoogleAuthscreen> {
               },
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.all(20), // Adjust padding as needed
-                backgroundColor: const Color(0xffffffff), // Button background color
+                backgroundColor: const Color(0xFF3D3B3B), // Button background color
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30.0),
                 ), // Circular button shape
@@ -130,5 +148,6 @@ class _GoogleAuthscreenState extends State<GoogleAuthscreen> {
       ),
     );
   }
+
 
 }

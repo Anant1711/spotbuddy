@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spotbuddy/screens/HomeScreen.dart';
+import 'package:spotbuddy/screens/gender.dart';
 
 class PhoneAuthScreen extends StatefulWidget {
   double lat = 0.0;
@@ -116,9 +117,20 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
         SharedPreferences prefs = await SharedPreferences.getInstance();
         prefs.setString("phoneNumber", phoneNumber);
 
-        // Phone number successfully linked, navigate to Homepage
-        Navigator.pushReplacement(context, MaterialPageRoute(
-            builder: (context) => HomeScreen.withOptions(widget.lat,widget.long,widget.mUid)));
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .get();
+
+        if(userDoc['isBasicDetails']){
+          // Phone number successfully linked, navigate to Homepage
+          Navigator.pushReplacement(context, MaterialPageRoute(
+              builder: (context) => HomeScreen.withOptions(widget.lat,widget.long,widget.mUid)));
+        }else{
+          Navigator.pushReplacement(context, MaterialPageRoute(
+              builder: (context) => GenderSelectionScreen()));
+        }
+
         //Navigator.pushReplacementNamed(context, '/home');
       } catch (e) {
         setState(() {
