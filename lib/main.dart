@@ -11,7 +11,10 @@ import 'package:spotbuddy/screens/HomeScreen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:spotbuddy/screens/PhoneAuthScreen.dart';
 import 'package:spotbuddy/screens/basicDetailScreen.dart';
+import 'package:spotbuddy/screens/findbuddy.dart';
 import 'package:spotbuddy/screens/gender.dart';
+import 'package:spotbuddy/screens/messageScreen.dart';
+import 'package:spotbuddy/screens/profileScreen.dart';
 /**************************** Imports ****************************/
 
 Future<void> main() async {
@@ -64,6 +67,9 @@ class SpotBuddyApp extends StatelessWidget {
         '/genderScreen': (context) => GenderSelectionScreen(),
         '/phoneAuth': (context) => PhoneAuthScreen(),
         '/AuthScreen': (context) => GoogleAuthscreen(),
+        '/messagescreen': (context) => MessagingScreen(),
+        '/profile': (context) => ProfileScreen(),
+        '/findbuddy':(context) => GymBuddyScreen(),
       },
     );
   }
