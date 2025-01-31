@@ -21,6 +21,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final _formKey = GlobalKey<FormState>();
   String _verificationId = '';
+  bool isLoading = false; // Track if loading
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
   String _errorMessage = '';
@@ -203,20 +204,40 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ),
                     const SizedBox(height: 30),
                     SizedBox(
-                      width: double.infinity, // Button will take full width
+                      width: double.infinity, // Button takes full width
                       child: ElevatedButton(
-                        onPressed: () {
-                          FocusScope.of(context).unfocus();
-                          _verifyPhoneNumber();
+                        onPressed: isLoading
+                            ? null // Disable button while loading
+                            : () async {
+                          setState(() {
+                            isLoading = true; // Start loading
+                          });
+
+                          FocusScope.of(context).unfocus(); // Hide keyboard
+                          await _verifyPhoneNumber(); // Call your function
+
+                          setState(() {
+                            isLoading = false; // Stop loading
+                          });
                         },
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           backgroundColor: const Color(0xff4C46EB),
+                          disabledBackgroundColor: Colors.grey[300], // Grey when disabled
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text(
+                        child: isLoading
+                            ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                            : const Text(
                           'Next',
                           style: TextStyle(
                             color: Colors.white,
@@ -245,6 +266,8 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
+
+                      /// **OTP Input Field**
                       TextFormField(
                         keyboardType: TextInputType.phone,
                         controller: _otpController,
@@ -254,39 +277,63 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                           hintText: 'Enter your 6-digit OTP',
                           filled: true,
                           fillColor: Colors.grey[200],
-                          prefixIcon: Icon(Icons.password, color: Colors.blueAccent),
+                          prefixIcon: const Icon(Icons.password, color: Colors.blueAccent),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.blueAccent, width: 2),
+                            borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
                           ),
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please OTP';
+                            return 'Please enter OTP';
                           }
                           return null;
                         },
                       ),
                       const SizedBox(height: 30),
+
+                      /// **Verify OTP Button**
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: () {
-                            FocusScope.of(context).unfocus();
-                            _verifyOTP();
+                          onPressed: isLoading
+                              ? null // Disable button while loading
+                              : () async {
+                            if (_formKey.currentState!.validate()) {
+                              setState(() {
+                                isLoading = true; // Start loading
+                              });
+
+                              FocusScope.of(context).unfocus(); // Hide keyboard
+                              await _verifyOTP(); // Call your OTP verification function
+
+                              setState(() {
+                                isLoading = false; // Stop loading
+                              });
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             backgroundColor: const Color(0xff4C46EB),
+                            disabledBackgroundColor: Colors.grey[300], // Grey when disabled
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text(
+                          child: isLoading
+                              ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                              : const Text(
                             'Verify',
                             style: TextStyle(
                               color: Colors.white,

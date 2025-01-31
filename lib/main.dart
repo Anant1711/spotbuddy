@@ -11,7 +11,11 @@ import 'package:spotbuddy/screens/HomeScreen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:spotbuddy/screens/PhoneAuthScreen.dart';
 import 'package:spotbuddy/screens/basicDetailScreen.dart';
+import 'package:spotbuddy/screens/findbuddy.dart';
 import 'package:spotbuddy/screens/gender.dart';
+import 'package:spotbuddy/screens/messageScreen.dart';
+import 'package:spotbuddy/screens/myProfileScreen.dart';
+import 'package:spotbuddy/utils/globalVariables.dart' as global;
 /**************************** Imports ****************************/
 
 Future<void> main() async {
@@ -55,7 +59,7 @@ class SpotBuddyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       color: const Color(0xffDCDBE2),
-      theme: _buildTheme(Brightness.light),
+      theme: new ThemeData(scaffoldBackgroundColor: const Color(0xFFEFEFEF)),
       title: 'SpotBuddy',
       home: AuthenticationWrapper(),
       routes: {
@@ -64,6 +68,9 @@ class SpotBuddyApp extends StatelessWidget {
         '/genderScreen': (context) => GenderSelectionScreen(),
         '/phoneAuth': (context) => PhoneAuthScreen(),
         '/AuthScreen': (context) => GoogleAuthscreen(),
+        '/messagescreen': (context) => MessagingScreen(),
+        '/profile': (context) => MyProfileScreen(),
+        '/findbuddy':(context) => GymBuddyScreen(),
       },
     );
   }
@@ -124,6 +131,11 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
         desiredAccuracy: LocationAccuracy.high);
     mLatitude = position.latitude;
     mLongitude = position.longitude;
+
+    //Setting Global Variables
+    global.g_currentUserLatitude = position.latitude;
+    global.g_currentUserLongitude = position.longitude;
+
     print('Current location: ${position.latitude}, ${position.longitude}');
   }
 
