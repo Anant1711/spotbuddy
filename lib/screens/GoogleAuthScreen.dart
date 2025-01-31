@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spotbuddy/screens/HomeScreen.dart';
+import '../utils/globalVariables.dart' as global;
 /**************************** Imports ****************************/
 
 class GoogleAuthscreen extends StatefulWidget {
@@ -53,6 +53,11 @@ class _GoogleAuthscreenState extends State<GoogleAuthscreen> {
           prefs.setString("email", currentUser.email??'');
           prefs.setBool("isBasicDetails", false);
 
+          //Setting Global Variables
+          global.g_currentUsername = currentUser.displayName!;
+          global.g_currentUserId = currentUser.uid;
+          global.g_currentUserEmailId = currentUser.email!;
+
           //Creating Field on CLOUD
           await FirebaseFirestore.instance
               .collection('users')
@@ -70,6 +75,12 @@ class _GoogleAuthscreenState extends State<GoogleAuthscreen> {
         prefs.setString("userName", currentUser?.displayName ?? '');
         prefs.setString("userId", currentUser!.uid);
         prefs.setString("email", currentUser.email??'');
+
+        //Setting Global Variables
+        global.g_currentUsername = currentUser.displayName!;
+        global.g_currentUserId = currentUser.uid;
+        global.g_currentUserEmailId = currentUser.email!;
+
         // Navigate to Homepage for existing users
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')

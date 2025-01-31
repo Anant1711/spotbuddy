@@ -1,6 +1,9 @@
+/// ************************ Imports ************************ ///
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/globalVariables.dart' as globalVariable;
+
+/// ************************ Imports ************************ ///
 
 class GenderSelectionScreen extends StatefulWidget {
   const GenderSelectionScreen({Key? key}) : super(key: key);
@@ -11,15 +14,10 @@ class GenderSelectionScreen extends StatefulWidget {
 
 //TODO: Save Entry On Cloud and Shared Preference
 class _GenderSelectionScreenState extends State<GenderSelectionScreen> {
+  /// ************************ Variables ************************ ///
   String? selectedGender;
-  late String g_userID;
-
-  @override
-  void initState() {
-    super.initState();
-    print("checking Location:");
-    _fetchUserDetail();
-  }
+  bool isLoading = false; // Track if loading
+  /// ************************ Variables ************************ ///
 
   @override
   Widget build(BuildContext context) {
@@ -71,34 +69,57 @@ class _GenderSelectionScreenState extends State<GenderSelectionScreen> {
                   const SizedBox(height: 40),
 
                   // Next button
+
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: selectedGender != null
-                          ? () {
-                        _updateInCloud();
-                        print('Selected gender: $selectedGender');
-                        Navigator.pushReplacementNamed(context, '/basicDetailsScreen');
-                      }
+                      onPressed: (selectedGender != null &&
+                              !isLoading) // Disable while loading
+                          ? () async {
+                              setState(() {
+                                isLoading = true; // Start loading
+                              });
+
+                              await _updateInCloud(); // Call your function
+
+                              setState(() {
+                                isLoading = false; // Stop loading
+                              });
+
+                              print('Selected gender: $selectedGender');
+                              Navigator.pushReplacementNamed(
+                                  context, '/basicDetailsScreen');
+                            }
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
-                        disabledBackgroundColor: Colors.grey[300],
+                        disabledBackgroundColor:
+                            Colors.grey[300], // Grey when disabled
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text(
-                        'Next',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Next',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
+
                   const SizedBox(height: 20), // Bottom padding
                 ],
               ),
@@ -108,18 +129,14 @@ class _GenderSelectionScreenState extends State<GenderSelectionScreen> {
       ),
     );
   }
-  Future<void> _fetchUserDetail()async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? userId = prefs.getString('userId');
-    debugPrint("User Id in GenderScreen: "+userId!);
-    g_userID = userId;
-  }
-  Future<void> _updateInCloud()async {
-    await FirebaseFirestore.instance.collection('users')
-        .doc(g_userID)
+
+  Future<void> _updateInCloud() async {
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(globalVariable.g_currentUserId)
         .update({
       'isBasicDetails': true,
-      'gender':selectedGender,
+      'gender': selectedGender,
     });
   }
 

@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:spotbuddy/screens/findbuddy.dart';
-import 'package:spotbuddy/screens/messageScreen.dart';
 
-class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+class MyProfileScreen extends StatefulWidget {
+  const MyProfileScreen({Key? key}) : super(key: key);
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  State<MyProfileScreen> createState() => _MyProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _MyProfileScreenState extends State<MyProfileScreen> {
   GlobalKey<ScaffoldState> _profileScaffoldKey =
   GlobalKey<ScaffoldState>();
 

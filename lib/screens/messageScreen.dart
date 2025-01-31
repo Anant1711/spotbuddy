@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:spotbuddy/main.dart';
 import 'package:spotbuddy/screens/findbuddy.dart';
-import 'package:spotbuddy/screens/profileScreen.dart';
+import 'package:spotbuddy/screens/myProfileScreen.dart';
+import '../utils/globalFunctions.dart' as globalFunction;
 
 class MessagingScreen extends StatefulWidget {
   const MessagingScreen({Key? key}) : super(key: key);
@@ -90,6 +92,36 @@ class _MessagingScreenState extends State<MessagingScreen> {
                 Navigator.pop(context);
               },
             ),
+            ListTile(
+              title: const Text(
+                'Trainers',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: const Text(
+                'Log out',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600,color: Colors.red),
+              ),
+              onTap: () async {
+                bool? confirmation = await _showConfirmationDialog(
+                    context, "Log Out?");
+                if (confirmation == true) {
+                  await globalFunction.signOut();
+                  await globalFunction.signOutGoogle();
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) =>
+                            AuthenticationWrapper()),
+                        (Route<dynamic> route) => false,
+                  );
+                }
+              },
+            ),
           ],
         ),
       ),
@@ -153,5 +185,37 @@ class _MessagingScreenState extends State<MessagingScreen> {
       ),
     );
   }
+
+  Future<bool?> _showConfirmationDialog(BuildContext context, String title) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          title: Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
+          // content: Text(content),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Color(0xff4C46EB)),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xff4C46EB)),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text(
+                'Confirm',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 }
 
