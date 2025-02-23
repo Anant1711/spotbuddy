@@ -57,6 +57,7 @@ class _GoogleAuthscreenState extends State<GoogleAuthscreen> {
           global.g_currentUsername = currentUser.displayName!;
           global.g_currentUserId = currentUser.uid;
           global.g_currentUserEmailId = currentUser.email!;
+          debugPrint("New-User ID in Google Auth Screen: ${global.g_currentUserId}");
 
           //Creating Field on CLOUD
           await FirebaseFirestore.instance
@@ -67,7 +68,9 @@ class _GoogleAuthscreenState extends State<GoogleAuthscreen> {
             'name': currentUser.displayName ?? 'Guest',
             'email': currentUser.email,
             'isPhoneNumberVerified': false,
+            'isGender':false,
             'isBasicDetails':false,
+            'isBasicDetails2':false,
           });
         }
         Navigator.pushReplacementNamed(context, '/phoneAuth');
@@ -80,6 +83,8 @@ class _GoogleAuthscreenState extends State<GoogleAuthscreen> {
         global.g_currentUsername = currentUser.displayName!;
         global.g_currentUserId = currentUser.uid;
         global.g_currentUserEmailId = currentUser.email!;
+
+        debugPrint("User ID in Google Auth Screen: ${global.g_currentUserId}");
 
         // Navigate to Homepage for existing users
         DocumentSnapshot userDoc = await FirebaseFirestore.instance

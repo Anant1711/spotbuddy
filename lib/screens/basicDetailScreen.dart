@@ -16,6 +16,7 @@ class Basicdetailscreen extends StatefulWidget {
 }
 
 class _BasicdetailscreenState extends State<Basicdetailscreen> {
+  /// ************************************* Variables *************************************///
   final _formKey = GlobalKey<FormState>();
   List<String> _suggestions = [];
   List<String> _placeId = [];
@@ -29,6 +30,9 @@ class _BasicdetailscreenState extends State<Basicdetailscreen> {
   final TextEditingController _gymLocationController = TextEditingController();
   DateTime? _selectedDate;
   List<MachineWeight> _machineWeights = [];
+  late double m_gymLatitude;
+  late double m_gymLongitutde;
+  /// ************************************* Variables *************************************///
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -41,22 +45,6 @@ class _BasicdetailscreenState extends State<Basicdetailscreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Back button and title
-                  // Row(
-                  //   children: [
-                  //     IconButton(
-                  //       icon: const Icon(Icons.arrow_back),
-                  //       onPressed: () => Navigator.pop(context),
-                  //     ),
-                  //     const Text(
-                  //       'Basic Details',
-                  //       style: TextStyle(
-                  //         fontSize: 20,
-                  //         fontWeight: FontWeight.bold,
-                  //       ),
-                  //     ),
-                  //   ],
-                  // ),
                   const SizedBox(height: 40),
 
                   // Main content
@@ -448,7 +436,7 @@ class _BasicdetailscreenState extends State<Basicdetailscreen> {
 
       // TODO: Navigate to the next screen or send data to backend
       _updateInCloud();
-      Navigator.popAndPushNamed(context, '/home');
+      Navigator.popAndPushNamed(context, '/basicDetailsScreen_2');
     }
   }
 
@@ -463,12 +451,15 @@ class _BasicdetailscreenState extends State<Basicdetailscreen> {
     await FirebaseFirestore.instance.collection('users')
         .doc(global.g_currentUserId)
         .update({
+      'isBasicDetails':true,
       'weight':_weightController.text,
       'height': _heightController.text,
       'gym_experience':_experienceController.text,
       'dob':DateFormat('dd-MM-yyyy').format(_selectedDate!),
       'gym_location':_gymLocationController.text,
       'gym_location_link':mLocationLink,
+      'gym_lat':m_gymLatitude,
+      'gym_long':m_gymLongitutde,
       'machine_weights': machineWeights,
     });
   }
@@ -506,7 +497,9 @@ class _BasicdetailscreenState extends State<Basicdetailscreen> {
     Position position =
     await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
 
-    print("lat: ${position.latitude} long: ${position.longitude}");
+    print("Setting - lat: ${position.latitude} long: ${position.longitude}");
+    m_gymLongitutde = position.longitude;
+    m_gymLatitude = position.latitude;
 
     // Fetch location address from coordinates
     await _getLocationFromLatLong(position.latitude, position.longitude);
@@ -521,7 +514,6 @@ class _BasicdetailscreenState extends State<Basicdetailscreen> {
 
     generateGoogleMapsLinkFromLatLong(position.latitude, position.longitude);
   }
-
 
   // BottomSheet widget
   void _showLocationBottomSheet(BuildContext context) {
@@ -746,7 +738,6 @@ class _BasicdetailscreenState extends State<Basicdetailscreen> {
     }
   }
 
-
   //Widget for Location Permission
   void showTopFlushBarForEnableLocation(BuildContext context, String message) {
     Flushbar(
@@ -801,6 +792,9 @@ class _BasicdetailscreenState extends State<Basicdetailscreen> {
         Map<String, dynamic> location = json['result']['geometry']['location'];
         double latitude = location['lat'];
         double longitude = location['lng'];
+
+        m_gymLongitutde = longitude;
+        m_gymLatitude = latitude;
 
         // Get formatted address from API response
         String formattedAddress = json['result']['formatted_address'];

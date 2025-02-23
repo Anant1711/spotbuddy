@@ -135,7 +135,7 @@ class _GenderSelectionScreenState extends State<GenderSelectionScreen> {
         .collection('users')
         .doc(globalVariable.g_currentUserId)
         .update({
-      'isBasicDetails': true,
+       'isGender': true,
       'gender': selectedGender,
     });
   }
