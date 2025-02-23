@@ -1,8 +1,11 @@
 /// ************************ Imports ************************ ///
 import 'dart:convert';
 import 'package:another_flushbar/flushbar.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:spotbuddy/screens/user_profile_screen.dart';
 import 'package:spotbuddy/services/NetworkUtitliy.dart';
 import '../utils/globalVariables.dart' as global;
 import'../utils/globalFunctions.dart' as globalFunctions;
@@ -41,7 +44,7 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
 
   GlobalKey<ScaffoldState> _findbuddyscaffoldKey = GlobalKey<ScaffoldState>();
   String selectedTab = "My Workouts";
-  String selectedWorkout = "Weight Training";
+  String selectedWorkout = "All";
 
   @override
   Widget build(BuildContext context) {
@@ -51,8 +54,8 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-          surfaceTintColor: Colors.transparent,
-          leading: GestureDetector(
+        surfaceTintColor: Colors.transparent,
+        leading: GestureDetector(
           onTap: () {
             _findbuddyscaffoldKey.currentState?.openDrawer();
           },
@@ -72,7 +75,7 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
             },
             child: Text(
               globalFunctions.truncateText(m_CurrentLocation, 3), // Truncate to 3 words
-              style: TextStyle(color: Colors.black,fontWeight: FontWeight.w900),
+              style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900),
               overflow: TextOverflow.ellipsis, // Handle overflow
               softWrap: true, // Allow wrapping if needed
             ),
@@ -121,58 +124,88 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
               children: [
+                _buildWorkoutButton('All', Icons.fitness_center_rounded),
+                const SizedBox(width: 12),
                 _buildWorkoutButton('Weight Training', Icons.fitness_center),
                 const SizedBox(width: 12),
                 _buildWorkoutButton('Cardio', Icons.directions_run),
+                const SizedBox(width: 12),
+                _buildWorkoutButton('CrossFit', Icons.run_circle_outlined),
                 const SizedBox(width: 12),
                 _buildWorkoutButton('Yoga', Icons.self_improvement),
               ],
             ),
           ),
           const SizedBox(height: 20),
-          // Session Cards
+          // Fetch and display session cards from Firebase
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              children: [
-                _buildSessionCard(
-                  type: 'Weight Training',
-                  name: 'Alex Johnson',
-                  karma: '350',
-                  status: 'Looking for Partner',
-                  time: '27 Jan, 6:00 AM',
-                  location: 'FitZone Gym, Downtown',
-                  distance: '1.5 Kms',
-                  level: 'Advanced',
-                  slots: 2,
-                ),
-                const SizedBox(height: 16),
-                _buildSessionCard(
-                  type: 'Weight Training',
-                  name: 'Alex Johnson',
-                  karma: '350',
-                  status: 'Looking for Partner',
-                  time: '27 Jan, 6:00 AM',
-                  location: 'FitZone Gym, Downtown',
-                  distance: '1.5 Kms',
-                  level: 'Advanced',
-                  slots: 2,
-                ),
-                const SizedBox(height: 16),
-                _buildSessionCard(
-                  type: 'Weight Training',
-                  name: 'Sarah Williams',
-                  karma: '275',
-                  status: 'Morning Workout',
-                  time: '27 Jan, 7:30 AM',
-                  location: 'PowerHouse Fitness',
-                  distance: '2.3 Kms',
-                  level: 'Intermediate',
-                  slots: 3,
-                ),
-              ],
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('users').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(child: Text('No users around you!'));
+                }
+
+                final userList = snapshot.data!.docs.where((doc) {
+                  // Exclude sessions created by the current user
+                  if (doc['userID'] == global.g_currentUserId) {
+                    return false;
+                  }
+
+                  // Convert workoutTypes to List<String>
+                  List<String> workoutTypes = (doc['workoutTypes'] is List)
+                      ? doc['workoutTypes'].cast<String>()
+                      : (doc['workoutTypes'] is String
+                      ? doc['workoutTypes'].split(',').map((s) => s.trim()).toList()
+                      : []);
+
+                  // Apply workout filter: Show all sessions if "All" is selected
+                  return selectedWorkout == "All" || workoutTypes.contains(selectedWorkout);
+                }).map((doc) {
+                  double distance = globalFunctions.calculateDistance(
+                    global.g_currentUserLatitude,
+                    global.g_currentUserLongitude,
+                    doc['gym_lat'],
+                    doc['gym_long'],
+                  );
+
+                  return _buildSessionCard(
+                    name: doc['name'] ?? 'Unknown',
+                    workoutTypes: (doc['workoutTypes'] is List)
+                        ? (doc['workoutTypes'] as List).join(', ')
+                        : (doc['workoutTypes']?.toString() ?? 'N/A'),
+                    workoutDays: (doc['workoutDays'] is List)
+                        ? (doc['workoutDays'] as List).join(', ')
+                        : (doc['workoutDays']?.toString() ?? 'Unknown'),
+                    Workouttime: doc['workoutTime'] ?? 'N/A',
+                    location: doc['gym_location'] ?? 'Unknown',
+                    distance: (distance < 1)
+                        ? "${(distance * 1000).toStringAsFixed(0)} m"
+                        : "${distance.toStringAsFixed(2)} km",
+                    userId: doc['userID'],
+                    context: context,
+                    bodyWeight: doc['weight'] ?? 'Not Available',
+                  );
+                }).toList();
+
+                return ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  children: userList,
+                );
+              },
             ),
           ),
+
+
+
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -190,8 +223,8 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
         onTap: (index) {
           if (index == 0) {
             Navigator.popAndPushNamed(
-              context,
-              '/home');
+                context,
+                '/home');
           } else if (index == 2) {
             //navigation to Message screen
             Navigator.popAndPushNamed(context, "/messagescreen");
@@ -203,6 +236,46 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
       ),
     );
   }
+
+  Widget _buildDetailRow(String title, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style:(TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          Expanded(
+            child: Text(value),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRowWithChips(String title, List<String> items, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: items.map((item) {
+              return Chip(
+                label: Text(item, style: const TextStyle(fontSize: 14)),
+                backgroundColor: color,
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildWorkoutButton(String title, IconData icon) {
     final isSelected = selectedWorkout == title;
@@ -220,118 +293,434 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
       ),
     );
   }
-
-  Widget _buildSessionCard({
-    required String type,
-    required String name,
-    required String karma,
-    required String status,
-    required String time,
-    required String location,
-    required String distance,
-    required String level,
-    required int slots,
-  }) {
-    return Card(
-      color: Colors.white,
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+  void _showSessionDetailsBottomSheet(
+      BuildContext context,
+      String name,
+      List<String> workoutType,
+      List<String> workoutDays,
+      List<String> workoutTimes,
+      String location,
+      String distance,
+      String BodyWeight,
+      ) {showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      builder: (BuildContext context) {
+        return SizedBox(
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '$type • Regular',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
+                Center(
+                  child: Text(
+                    name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
                   ),
                 ),
+                const SizedBox(height: 20),
+                // _buildDetailRow("Karma: ", karma),
+                // _buildDetailRow("Level: ", level),
+                // _buildDetailRow("Slots Available: ", slots.toString()),
+                _buildDetailRowWithChips("Workout Type: ",workoutType ,Colors.amber),
+                _buildDetailRowWithChips("Workout Days: ", workoutDays, Colors.amber),
+                _buildDetailRowWithChips("Workout Time: ", workoutTimes, Colors.red[100]!),
+                _buildDetailRow("Body Weight: ", BodyWeight),
+                _buildDetailRow("Location: ", location),
+                _buildDetailRow("Distance: ", distance),
+
                 const Spacer(),
-                Icon(Icons.bookmark_border, color: Colors.grey[600]),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const CircleAvatar(
-                  radius: 20,
-                  backgroundImage: NetworkImage(
-                      'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-QPO2xJvrscRL3kyQNn5zG50lODp82k.png'),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        '$name | $karma Karma | $status',
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                      ElevatedButton(
+                        onPressed: () {
+                          //TODO: Send Add request to Respective User
+                          Navigator.pop(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                        ),
+                        child: const Text(
+                          "Connect +",
+                          style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w600),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        time,
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
+                      const SizedBox(width: 16), // Space between buttons
+                      ElevatedButton(
+                        onPressed: () {
+                          // Handle Direct Message action
+                          //TODO: Premimum Feature to message anyone without connect
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey[200], // Different color for distinction
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15), // Adjust padding
+                        ),
+                        child: const Icon(
+                          Icons.message, // Message icon
+                          color: Colors.black,
+                          size: 24, // Adjust size if needed
                         ),
                       ),
                     ],
                   ),
                 ),
+
+
+                const SizedBox(height: 20),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(Icons.location_on, color: Colors.grey[600], size: 16),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    '$location • $distance',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSessionCard({
+    required String name,
+    required dynamic workoutTypes,
+    required dynamic workoutDays, // workoutDays (List or String)
+    required dynamic Workouttime, // workoutTime (List or String)
+    required String location,
+    required String distance,
+    // required String level,
+    required String userId,
+    required BuildContext context, // Pass BuildContext
+    required String bodyWeight,
+  }) {
+    List<String> l_workoutType = (workoutTypes is List)
+        ? workoutTypes.cast<String>()
+        : (workoutTypes is String ? workoutTypes.split(',').map((s) => s.trim()).toList() : []);
+
+    List<String> l_workoutDays = (workoutDays is List)
+        ? workoutDays.cast<String>()
+        : (workoutDays is String ? workoutDays.split(',').map((s) => s.trim()).toList() : []);
+
+    List<String> l_workoutTimes = (Workouttime is List)
+        ? Workouttime.cast<String>()
+        : (Workouttime is String ? Workouttime.split(',').map((s) => s.trim()).toList() : []);
+
+    return GestureDetector(
+      onTap: () {
+        _showSessionDetailsBottomSheet(context, name,l_workoutType, l_workoutDays, l_workoutTimes, globalFunctions.truncateText(location, 4), distance,bodyWeight);
+      },
+      child: Card(
+        color: Colors.white,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  // Text(
+                  //   '$type • Regular',
+                  //   style: TextStyle(
+                  //     color: Colors.grey[600],
+                  //     fontSize: 14,
+                  //   ),
+                  // // ),
+                  // const Spacer(),
+                  // Icon(Icons.bookmark_border, color: Colors.grey[600]),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 20,
+                    backgroundImage: NetworkImage(
+                      'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-QPO2xJvrscRL3kyQNn5zG50lODp82k.png',
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.amber,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    level,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$name | $workoutTypes',
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 8.0,
+                          runSpacing: 8.0,
+                          children: l_workoutDays.map((day) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.amber,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                day,
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8.0,
+                          runSpacing: 8.0,
+                          children: l_workoutTimes.map((t) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.red[100],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.access_time, size: 14, color: Colors.black),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    t,
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(Icons.location_on, color: Colors.grey[600], size: 16),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      '$location • $distance',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+
+
+  // Widget _buildSessionCard({
+  //   required String type,
+  //   required String name,
+  //   required String karma,
+  //   required dynamic status, // workoutDays (List or String)
+  //   required dynamic time, // workoutTime (List or String)
+  //   required String location,
+  //   required String distance,
+  //   required String level,
+  //   required int slots,
+  //   required String userId,
+  // }) {
+  //   // Ensure workoutDays is a list
+  //   List<String> workoutDays = [];
+  //   if (status is List) {
+  //     workoutDays = status.cast<String>(); // Convert dynamic List to List<String>
+  //   } else if (status is String) {
+  //     workoutDays = status.split(',').map((s) => s.trim()).toList(); // Split string by comma
+  //   }
+  //   // Ensure workoutTime is a list
+  //   List<String> workoutTimes = [];
+  //   if (time is List) {
+  //     workoutTimes = time.cast<String>(); // Convert dynamic List to List<String>
+  //   } else if (time is String) {
+  //     workoutTimes = time.split(',').map((s) => s.trim()).toList(); // Split string by comma
+  //   }
+  //   return GestureDetector(
+  //     onTap: () {
+  //       Navigator.push(
+  //         context,
+  //         MaterialPageRoute(
+  //           builder: (context) => UserProfileScreen(userId: userId),
+  //         ),
+  //       );
+  //     },
+  //     child: Card(
+  //       color: Colors.white,
+  //       elevation: 2,
+  //       shape: RoundedRectangleBorder(
+  //         borderRadius: BorderRadius.circular(12),
+  //       ),
+  //       child: Padding(
+  //         padding: const EdgeInsets.all(16.0),
+  //         child: Column(
+  //           crossAxisAlignment: CrossAxisAlignment.start,
+  //           children: [
+  //             Row(
+  //               children: [
+  //                 Text(
+  //                   '$type • Regular',
+  //                   style: TextStyle(
+  //                     color: Colors.grey[600],
+  //                     fontSize: 14,
+  //                   ),
+  //                 ),
+  //                 const Spacer(),
+  //                 Icon(Icons.bookmark_border, color: Colors.grey[600]),
+  //               ],
+  //             ),
+  //             const SizedBox(height: 12),
+  //
+  //             // Name, Karma, and Workout Days
+  //             Row(
+  //               children: [
+  //                 const CircleAvatar(
+  //                   radius: 20,
+  //                   backgroundImage: NetworkImage(
+  //                     'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-QPO2xJvrscRL3kyQNn5zG50lODp82k.png',
+  //                   ),
+  //                 ),
+  //                 const SizedBox(width: 12),
+  //                 Expanded(
+  //                   child: Column(
+  //                     crossAxisAlignment: CrossAxisAlignment.start,
+  //                     children: [
+  //                       Text(
+  //                         '$name | $karma',
+  //                         style: const TextStyle(
+  //                           color: Colors.black,
+  //                           fontSize: 14,
+  //                           fontWeight: FontWeight.bold,
+  //                         ),
+  //                       ),
+  //                       const SizedBox(height: 4),
+  //
+  //                       // Display Workout Days as Yellow Boxes
+  //                       Wrap(
+  //                         spacing: 8.0,
+  //                         runSpacing: 8.0,
+  //                         children: workoutDays.map((day) {
+  //                           return Container(
+  //                             padding: const EdgeInsets.symmetric(
+  //                                 horizontal: 12, vertical: 6),
+  //                             decoration: BoxDecoration(
+  //                               color: Colors.amber,
+  //                               borderRadius: BorderRadius.circular(12),
+  //                             ),
+  //                             child: Text(
+  //                               day,
+  //                               style: const TextStyle(
+  //                                 color: Colors.black,
+  //                                 fontSize: 12,
+  //                                 fontWeight: FontWeight.bold,
+  //                               ),
+  //                             ),
+  //                           );
+  //                         }).toList(),
+  //                       ),
+  //
+  //                       const SizedBox(height: 8),
+  //
+  //                       // Display Workout Time as Yellow Boxes with Clock Icon
+  //                       Wrap(
+  //                         spacing: 8.0,
+  //                         runSpacing: 8.0,
+  //                         children: workoutTimes.map((t) {
+  //                           return Container(
+  //                             padding: const EdgeInsets.symmetric(
+  //                                 horizontal: 12, vertical: 6),
+  //                             decoration: BoxDecoration(
+  //                               color: Colors.red[100],
+  //                               borderRadius: BorderRadius.circular(12),
+  //                             ),
+  //                             child: Row(
+  //                               mainAxisSize: MainAxisSize.min,
+  //                               children: [
+  //                                 Icon(Icons.access_time, size: 14, color: Colors.black),
+  //                                 const SizedBox(width: 4),
+  //                                 Text(
+  //                                   t,
+  //                                   style: const TextStyle(
+  //                                     color: Colors.black,
+  //                                     fontSize: 12,
+  //                                     fontWeight: FontWeight.bold,
+  //                                   ),
+  //                                 ),
+  //                               ],
+  //                             ),
+  //                           );
+  //                         }).toList(),
+  //                       ),
+  //                     ],
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //
+  //             const SizedBox(height: 12),
+  //
+  //             // Location and Distance
+  //             Row(
+  //               children: [
+  //                 Icon(Icons.location_on, color: Colors.grey[600], size: 16),
+  //                 const SizedBox(width: 4),
+  //                 Expanded(
+  //                   child: Text(
+  //                     '$location • $distance',
+  //                     style: TextStyle(
+  //                       color: Colors.grey[600],
+  //                       fontSize: 14,
+  //                     ),
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
+
   /// Google Maps Functions START ///
 
   // Function to get current location

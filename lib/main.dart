@@ -15,6 +15,7 @@ import 'package:spotbuddy/screens/findbuddy.dart';
 import 'package:spotbuddy/screens/gender.dart';
 import 'package:spotbuddy/screens/messageScreen.dart';
 import 'package:spotbuddy/screens/myProfileScreen.dart';
+import 'package:spotbuddy/screens/basicDetailScreen_2.dart';
 import 'package:spotbuddy/utils/globalVariables.dart' as global;
 /**************************** Imports ****************************/
 
@@ -59,12 +60,13 @@ class SpotBuddyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       color: const Color(0xffDCDBE2),
-      theme: new ThemeData(scaffoldBackgroundColor: const Color(0xFFEFEFEF)),
+      theme: _buildTheme(Brightness.light),
       title: 'SpotBuddy',
       home: AuthenticationWrapper(),
       routes: {
         '/home': (context) => HomeScreen(),
         '/basicDetailsScreen': (context) => Basicdetailscreen(),
+        '/basicDetailsScreen_2': (context) => basicDetailScreen_2(),
         '/genderScreen': (context) => GenderSelectionScreen(),
         '/phoneAuth': (context) => PhoneAuthScreen(),
         '/AuthScreen': (context) => GoogleAuthscreen(),
@@ -76,8 +78,7 @@ class SpotBuddyApp extends StatelessWidget {
   }
 
   ThemeData _buildTheme(brightness) {
-    var baseTheme = ThemeData(brightness: brightness);
-
+    var baseTheme = ThemeData(brightness: brightness,scaffoldBackgroundColor: const Color(0xFFEFEFEF));
     return baseTheme.copyWith(
       textTheme: GoogleFonts.latoTextTheme(baseTheme.textTheme),
     );
@@ -164,25 +165,33 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
                 );
               }
               if (userSnapshot.hasData && userSnapshot.data!.exists) {
-                bool isPhoneVerified =
-                    userSnapshot.data!['isPhoneNumberVerified'] ?? false;
-                bool isBasicDetails =
-                    userSnapshot.data!['isBasicDetails'] ?? false;
-                if (isPhoneVerified && isBasicDetails) {
+                bool isPhoneVerified = userSnapshot.data!['isPhoneNumberVerified'] ?? false;
+                bool isGender = userSnapshot.data!['isGender'] ?? false;
+                bool isBasicDetails = userSnapshot.data!['isBasicDetails'] ?? false;
+                bool isBasicDetails2 = userSnapshot.data!['isBasicDetails2'] ?? false;
+
+                // Navigate to the first false condition
+                if (!isPhoneVerified) {
+                  return PhoneAuthScreen.withOptions(
+                      mLatitude, mLongitude, userSnapshot.data!['userID']);
+                } else if (!isGender) {
+                  return GenderSelectionScreen();
+                } else if (!isBasicDetails) {
+                  return Basicdetailscreen();
+                } else if (!isBasicDetails2) {
+                  return basicDetailScreen_2();
+                } else {
+                  // Update Firestore with current location and navigate to HomeScreen
                   FirebaseFirestore.instance
                       .collection('users')
                       .doc(snapshot.data!.uid)
-                      .update(
-                          {'CurrentLat': mLatitude, 'CurrentLong': mLongitude});
+                      .update({'CurrentLat': mLatitude, 'CurrentLong': mLongitude});
+
                   return HomeScreen.withOptions(
-                      mLatitude, mLongitude, userSnapshot.data!['userID']);
-                } else if (isPhoneVerified && !isBasicDetails) {
-                  return GenderSelectionScreen();
-                } else if (!isPhoneVerified) {
-                  return PhoneAuthScreen.withOptions(
                       mLatitude, mLongitude, userSnapshot.data!['userID']);
                 }
               }
+
               return GoogleAuthscreen();
             },
           );
