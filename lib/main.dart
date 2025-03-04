@@ -70,7 +70,7 @@ class SpotBuddyApp extends StatelessWidget {
         '/genderScreen': (context) => GenderSelectionScreen(),
         '/phoneAuth': (context) => PhoneAuthScreen(),
         '/AuthScreen': (context) => GoogleAuthscreen(),
-        '/messagescreen': (context) => MessagingScreen(),
+        '/messagescreen': (context) => MessagingScreenResponsive(),
         '/profile': (context) => MyProfileScreen(),
         '/findbuddy':(context) => GymBuddyScreen(),
       },
