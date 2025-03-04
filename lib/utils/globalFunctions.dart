@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -49,6 +50,59 @@ String truncateText(String text, int maxWords) {
   } else {
     return words.take(maxWords).join(' ') +
         '...'; // Truncate and add ellipsis
+  }
+}
+
+Future<String> fetchUserName(String userId) async {
+  if (userId.isEmpty) {
+    print("🚨 Error: userId is empty!");
+    return "Unknown User";
+  }
+
+  try {
+    DocumentSnapshot userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .get();
+
+    if (userDoc.exists) {
+      return userDoc['name'] ?? "Unknown User";
+    } else {
+      print("Error: User not found for ID $userId");
+      return "Unknown User";
+    }
+  } catch (e) {
+    print("Firestore error while fetching userName: $e");
+    return "Unknown User";
+  }
+}
+
+String formatTimestamp(dynamic timestamp) {
+  if (timestamp is Timestamp) {
+    DateTime dateTime = timestamp.toDate(); // Convert Firestore Timestamp to DateTime
+    return "${dateTime.hour}:${dateTime.minute} ${dateTime.hour >= 12 ? 'PM' : 'AM'}"; // Format as HH:MM AM/PM
+  }
+  return "Unknown Time"; // Fallback if timestamp is null or invalid
+}
+
+Future<bool> areUsersFriends(String currentUserId, String otherUserId) async {
+  if (currentUserId.isEmpty || otherUserId.isEmpty) {
+    print("🚨 Error: One of the user IDs is empty!");
+    return false;
+  }
+
+  try {
+    DocumentSnapshot userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUserId)
+        .get();
+
+    List<dynamic> friendsList = userDoc['friends'] ?? [];
+
+    return friendsList.contains(otherUserId); // ✅ Check if otherUserId exists in friends list
+  } catch (e) {
+    print("🚨 Firestore error while checking friendship: $e");
+    return false;
   }
 }
 
