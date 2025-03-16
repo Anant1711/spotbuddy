@@ -10,6 +10,7 @@ import 'package:spotbuddy/services/NetworkUtitliy.dart';
 import '../main.dart';
 import '../utils/globalVariables.dart' as global;
 import '../utils/globalFunctions.dart' as globalFunctions;
+import 'ChatScreen.dart';
 
 /// ************************ Import ************************ ///
 
@@ -406,8 +407,7 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                             const SizedBox(width: 16), // Space between buttons
                             ElevatedButton(
                               onPressed: () {
-                                // TODO: Handle Direct Message action
-                                print("Message button pressed");
+                                // _openChatScreen(userID); // ✅ Open chat when clicking message button
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.grey[200], // Different color for distinction
@@ -425,8 +425,7 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                           ] else ...[ // ✅ If friends, show ONLY the Message button in rectangle
                             ElevatedButton(
                               onPressed: () {
-                                // TODO: Handle Direct Message action
-                                print("Message button pressed");
+                                _openChatScreen(userID); // ✅ Open chat when clicking message button
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black, // Same style as "Connect +"
@@ -905,6 +904,32 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
       },
     );
   }
+
+  void _openChatScreen(String receiverId) {
+    showDialog( // Show a loading dialog while fetching the username
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(child: CircularProgressIndicator()),
+    );
+
+    globalFunctions.fetchUserName(receiverId).then((receiverName) {
+      Navigator.pop(context); // Close loading dialog
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatScreen(
+            currentUserId: global.g_currentUserId, // ✅ Pass logged-in user ID
+            receiverId: receiverId, // ✅ Pass recipient's ID
+            receiverName: receiverName, // ✅ Fetch recipient's name dynamically
+          ),
+        ),
+      );
+    }).catchError((error) {
+      Navigator.pop(context); // Close loading dialog if error
+      print("🚨 Error fetching username: $error");
+    });
+  }
+
 
   // Reverse geocode to get address from lat/lng
   Future<void> _getLocationFromLatLong(double lat, double lng) async {

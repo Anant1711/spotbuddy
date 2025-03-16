@@ -89,7 +89,6 @@ class AuthenticationWrapper extends StatefulWidget {
   @override
   _AuthenticationWrapperState createState() => _AuthenticationWrapperState();
 }
-
 class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
   var mLatitude = 0.0;
   var mLongitude = 0.0;
@@ -99,6 +98,14 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
     super.initState();
     print("checking Location:");
     _checkLocationPermission();
+  }
+
+  /// ✅ Ensure Firebase is fully initialized before checking auth state
+  Future<User?> _getCurrentUser() async {
+    await Future.delayed(Duration(seconds: 2)); // Ensures FirebaseAuth initializes properly
+    return FirebaseAuth.instance.currentUser;
+
+    //TODO: Add in shared Preference
   }
 
   Future<void> _checkLocationPermission() async {
@@ -137,13 +144,15 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
     global.g_currentUserLatitude = position.latitude;
     global.g_currentUserLongitude = position.longitude;
 
+    //TODO: Add in shared Preference
+
     print('Current location: ${position.latitude}, ${position.longitude}');
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+    return FutureBuilder<User?>(
+      future: _getCurrentUser(), // ✅ Wait for Firebase Auth to fully initialize
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(
@@ -152,52 +161,54 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
               size: 50,
             ),
           );
-        } else if (snapshot.hasData) {
-          return FutureBuilder<DocumentSnapshot>(
-            future: FirebaseFirestore.instance
-                .collection('users')
-                .doc(snapshot.data!.uid)
-                .get(),
-            builder: (context, AsyncSnapshot<DocumentSnapshot> userSnapshot) {
-              if (userSnapshot.connectionState == ConnectionState.waiting) {
-                return Center(
-                  child: CircularProgressIndicator(),
-                );
-              }
-              if (userSnapshot.hasData && userSnapshot.data!.exists) {
-                bool isPhoneVerified = userSnapshot.data!['isPhoneNumberVerified'] ?? false;
-                bool isGender = userSnapshot.data!['isGender'] ?? false;
-                bool isBasicDetails = userSnapshot.data!['isBasicDetails'] ?? false;
-                bool isBasicDetails2 = userSnapshot.data!['isBasicDetails2'] ?? false;
-
-                // Navigate to the first false condition
-                if (!isPhoneVerified) {
-                  return PhoneAuthScreen.withOptions(
-                      mLatitude, mLongitude, userSnapshot.data!['userID']);
-                } else if (!isGender) {
-                  return GenderSelectionScreen();
-                } else if (!isBasicDetails) {
-                  return Basicdetailscreen();
-                } else if (!isBasicDetails2) {
-                  return basicDetailScreen_2();
-                } else {
-                  // Update Firestore with current location and navigate to HomeScreen
-                  FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(snapshot.data!.uid)
-                      .update({'CurrentLat': mLatitude, 'CurrentLong': mLongitude});
-
-                  return HomeScreen.withOptions(
-                      mLatitude, mLongitude, userSnapshot.data!['userID']);
-                }
-              }
-
-              return GoogleAuthscreen();
-            },
-          );
-        } else {
-          return GoogleAuthscreen();
         }
+
+        User? user = snapshot.data;
+
+        if (user == null) {
+          return GoogleAuthscreen(); // ✅ Ensure login screen is shown if user is not authenticated
+        }
+
+        return FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
+          builder: (context, AsyncSnapshot<DocumentSnapshot> userSnapshot) {
+            if (userSnapshot.connectionState == ConnectionState.waiting) {
+              return Center(
+                child: CircularProgressIndicator(),
+              );
+            }
+
+            if (userSnapshot.hasData && userSnapshot.data!.exists) {
+              var userData = userSnapshot.data!.data() as Map<String, dynamic>;
+
+              bool isPhoneVerified = userData['isPhoneNumberVerified'] ?? false;
+              bool isGender = userData['isGender'] ?? false;
+              bool isBasicDetails = userData['isBasicDetails'] ?? false;
+              bool isBasicDetails2 = userData['isBasicDetails2'] ?? false;
+
+              if (!isPhoneVerified) {
+                return PhoneAuthScreen.withOptions(
+                    mLatitude, mLongitude, userData['userID']);
+              } else if (!isGender) {
+                return GenderSelectionScreen();
+              } else if (!isBasicDetails) {
+                return Basicdetailscreen();
+              } else if (!isBasicDetails2) {
+                return basicDetailScreen_2();
+              } else {
+                FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid)
+                    .update({'CurrentLat': mLatitude, 'CurrentLong': mLongitude});
+
+                return HomeScreen.withOptions(
+                    mLatitude, mLongitude, userData['userID']);
+              }
+            }
+
+            return GoogleAuthscreen();
+          },
+        );
       },
     );
   }

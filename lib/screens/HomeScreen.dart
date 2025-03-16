@@ -29,9 +29,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> getUserName() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? userName = prefs.getString('userName');
+    String? userID = prefs.getString('userId');
     debugPrint("User Name: $userName");
     setState(() {
       global.g_currentUsername = userName ?? ''; // Use a fallback if userName is null
+      global.g_currentUserId = userID ?? '';
     });
   }
 
@@ -216,13 +218,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 '/findbuddy');
           } else if (index == 2) {
-            // TODO: Implement navigation to Message screen
             Navigator.popAndPushNamed(
                 context,
                 '/messagescreen');
             debugPrint('Messages Tab: $index');
           } else if (index == 3) {
-            // TODO: Implement navigation to Profile screen
             Navigator.popAndPushNamed(
                 context,
                 '/profile');
