@@ -165,20 +165,31 @@ class _MessagingScreenResponsiveState extends State<MessagingScreenResponsive> {
           return Center(child: CircularProgressIndicator());
         }
 
-        List<dynamic> friendRequests = snapshot.data!['friendRequests'] ?? [];
+        var userData = snapshot.data!.data() as Map<String, dynamic>?;
 
-        if (friendRequests.isEmpty) {
-          return Center(child: Text("No friend requests"));
+        // ✅ Ensure friendRequests field exists in Firestore document
+        if (userData == null || !userData.containsKey('friendRequests')) {
+          return Center(child: Text("No friend requests found."));
+        }
+
+        List<dynamic> friendRequests = userData['friendRequests'];
+
+        // ✅ Ensure it's a valid list
+        if (friendRequests.isEmpty || friendRequests is! List) {
+          return Center(child: Text("No friend requests."));
         }
 
         return ListView.builder(
           itemCount: friendRequests.length,
           itemBuilder: (context, index) {
-            String senderId = friendRequests[index];
+            var request = friendRequests[index];
 
-            if (senderId.isEmpty) {
+            // ✅ Ensure each request is a string
+            if (request is! String) {
               return SizedBox.shrink();
             }
+
+            String senderId = request.trim();
 
             return FutureBuilder<DocumentSnapshot>(
               future: FirebaseFirestore.instance.collection('users').doc(senderId).get(),
@@ -187,7 +198,12 @@ class _MessagingScreenResponsiveState extends State<MessagingScreenResponsive> {
                   return SizedBox.shrink();
                 }
 
-                var user = userSnapshot.data!;
+                var user = userSnapshot.data!.data() as Map<String, dynamic>?;
+
+                // ✅ Ensure user document contains expected fields
+                String userName = user?['name'] ?? "Unknown User";
+                String workoutType = user?['workoutTypes'] ?? "Unknown";
+
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Padding(
@@ -196,15 +212,17 @@ class _MessagingScreenResponsiveState extends State<MessagingScreenResponsive> {
                       children: [
                         CircleAvatar(
                           radius: 24,
-                          backgroundImage: NetworkImage(user['profileImage'] ?? 'https://default-image.com'),
+                          // backgroundImage: user?['profileImage'] != null
+                          //     ? NetworkImage(user!['profileImage'])
+                          //     : AssetImage('assets/default-profile.png') as ImageProvider,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(user['name'], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                              Text(user['workoutTypes'] ?? 'Unknown', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+                              Text(userName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              Text(workoutType, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
                             ],
                           ),
                         ),
@@ -227,6 +245,7 @@ class _MessagingScreenResponsiveState extends State<MessagingScreenResponsive> {
       },
     );
   }
+
   /// ✅ Accept Friend Request
   void _acceptFriendRequest(String senderId) async {
     DocumentReference userRef =
