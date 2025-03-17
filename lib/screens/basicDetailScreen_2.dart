@@ -253,6 +253,7 @@ class _basicDetailScreen_2State extends State<basicDetailScreen_2> {
       'workoutTypes':_selectedWorkoutTypes,
     });
 
-    Navigator.popAndPushNamed(context, '/home');
+    // Navigator.popAndPushNamed(context, '/home');
+    Navigator.popAndPushNamed(context, '/uploadPhotos');
   }
 }

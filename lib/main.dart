@@ -16,6 +16,7 @@ import 'package:spotbuddy/screens/gender.dart';
 import 'package:spotbuddy/screens/messageScreen.dart';
 import 'package:spotbuddy/screens/myProfileScreen.dart';
 import 'package:spotbuddy/screens/basicDetailScreen_2.dart';
+import 'package:spotbuddy/screens/uploadPhotos.dart';
 import 'package:spotbuddy/utils/globalVariables.dart' as global;
 /**************************** Imports ****************************/
 
@@ -73,6 +74,7 @@ class SpotBuddyApp extends StatelessWidget {
         '/messagescreen': (context) => MessagingScreenResponsive(),
         '/profile': (context) => MyProfileScreen(),
         '/findbuddy':(context) => GymBuddyScreen(),
+        '/uploadPhotos':(context) => PhotoUploadScreen(),
       },
     );
   }

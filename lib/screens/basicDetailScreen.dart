@@ -241,7 +241,7 @@ class _BasicdetailscreenState extends State<Basicdetailscreen> {
                               color: Colors.grey[700],
                               fontWeight: FontWeight.bold),
                           hintStyle: TextStyle(color: Colors.grey[500]),
-                          labelText: "Location",
+                          labelText: "Gym Location",
                           filled: true,
                           fillColor: Colors.grey[300],
                           prefixIcon:
