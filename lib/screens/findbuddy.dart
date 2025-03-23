@@ -4,9 +4,8 @@ import 'package:another_flushbar/flushbar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:spotbuddy/screens/user_profile_screen.dart';
 import 'package:spotbuddy/services/NetworkUtitliy.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../utils/globalVariables.dart' as global;
 import '../utils/globalFunctions.dart' as globalFunctions;
@@ -179,7 +178,17 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                 final userList = snapshot.data!.docs.where((doc) {
                   // Exclude sessions created by the current user
                   if (doc['userID'] == global.g_currentUserId) {
-                    return false;
+                    print("✅ Current User Found: ${doc['name']}");
+
+                    global.g_workoutTypes = _parseWorkoutData(doc['workoutTypes']);
+                    global.g_workoutDays = _parseWorkoutData(doc['workoutDays']);
+                    global.g_workoutTimes = _parseWorkoutData(doc['workoutTime']);
+
+                    print("✅ Updated Workout Types: ${global.g_workoutTypes}");
+                    print("✅ Updated Workout Days: ${global.g_workoutDays}");
+                    print("✅ Updated Workout Times: ${global.g_workoutTimes}");
+
+                    return false; // Exclude the current user from the displayed list
                   }
 
                   // Convert workoutTypes to List<String>
@@ -211,8 +220,9 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                     workoutDays: (doc['workoutDays'] is List)
                         ? (doc['workoutDays'] as List).join(', ')
                         : (doc['workoutDays']?.toString() ?? 'Unknown'),
-                    Workouttime: doc['workoutTime'] ?? 'N/A',
+                    workoutTime: doc['workoutTime'] ?? 'N/A',
                     location: doc['gym_location'] ?? 'Unknown',
+                    location_link: doc['gym_location_link'] ?? 'Unknown',
                     distance: (distance < 1)
                         ? "${(distance * 1000).toStringAsFixed(0)} m"
                         : "${distance.toStringAsFixed(2)} km",
@@ -275,6 +285,27 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
       ),
     );
   }
+  Widget _buildDetailRowwithLink(String title, String value, String link) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: (TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          Expanded(
+            child: InkWell(
+              onTap: () {
+                _openGoogleMapsLink(link);
+              },
+              child: Text(value,style: TextStyle(color: Colors.lightBlueAccent),),
+            ),
+          )
+        ],
+      ),
+    );
+  }
 
   Widget _buildDetailRowWithChips(
       String title, List<String> items, Color color) {
@@ -322,16 +353,17 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
   }
 
   void _showSessionDetailsBottomSheet(
-    BuildContext context,
-    String name,
-    List<String> workoutType,
-    List<String> workoutDays,
-    List<String> workoutTimes,
-    String location,
-    String distance,
-    String BodyWeight,
-    String userID,
-  ) {
+      BuildContext context,
+      String name,
+      List<String> workoutType,
+      List<String> workoutDays,
+      List<String> workoutTimes,
+      String location,
+      String location_link,
+      String distance,
+      String BodyWeight,
+      String userID,
+      ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -343,13 +375,14 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
         ),
       ),
       builder: (BuildContext context) {
-        return SizedBox(
-          height: MediaQuery.of(context).size.height * 0.8,
+        return SingleChildScrollView( // ✅ Prevents overflow
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min, // ✅ Allows flexible height
               children: [
+                /// ✅ **User Name at the Center**
                 Center(
                   child: Text(
                     name,
@@ -360,33 +393,57 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                // _buildDetailRow("Karma: ", karma),
-                // _buildDetailRow("Level: ", level),
-                // _buildDetailRow("Slots Available: ", slots.toString()),
-                _buildDetailRowWithChips(
-                    "Workout Type: ", workoutType, Colors.amber),
-                _buildDetailRowWithChips(
-                    "Workout Days: ", workoutDays, Colors.amber),
-                _buildDetailRowWithChips(
-                    "Workout Time: ", workoutTimes, Colors.red[100]!),
-                _buildDetailRow("Body Weight: ", BodyWeight),
-                _buildDetailRow("Location: ", location),
-                _buildDetailRow("Distance: ", distance),
 
-                const Spacer(),
+                /// ✅ **Workout Details with Chips**
+                _buildDetailRowWithChips("Workout Type: ", workoutType, Colors.amber),
+                _buildDetailRowWithChips("Workout Days: ", workoutDays, Colors.amber),
+                _buildDetailRowWithChips("Workout Time: ", workoutTimes, Colors.red[100]!),
+
+                /// ✅ **Other Details**
+                _buildDetailRow("Body Weight: ", BodyWeight),
+
+                /// ✅ **Fixing Pixel Overflow Issue in Location Row**
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Location: ",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Flexible( // ✅ Prevents overflow
+                      child: InkWell(
+                        onTap: () => _openGoogleMapsLink(location_link), // ✅ Clickable Link
+                        child: Text(
+                          location,
+                          style: TextStyle(color: Colors.blue),
+                          overflow: TextOverflow.ellipsis, // ✅ Prevents text from overflowing
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                _buildDetailRow("Distance: ", distance),
+                const SizedBox(height: 12),
+
+                /// ✅ **Friendship & Messaging Actions**
                 Center(
                   child: FutureBuilder<bool>(
-                    future: globalFunctions.areUsersFriends(global.g_currentUserId, userID), // ✅ Check if users are friends
+                    future: globalFunctions.areUsersFriends(global.g_currentUserId, userID),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return CircularProgressIndicator(); // Show loading indicator
+                        return CircularProgressIndicator();
                       }
+
                       bool areFriends = snapshot.data ?? false;
+                      bool isPremiumUser = false; //TODO: Fetch it from Firebase
 
                       return Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          if (!areFriends) ...[ // ✅ If NOT friends, show both buttons
+                          if (!areFriends) ...[
+                            /// ✅ **Connect Button**
                             ElevatedButton(
                               onPressed: () {
                                 _sendFriendRequest(userID);
@@ -405,30 +462,35 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                               ),
                             ),
                             const SizedBox(width: 16), // Space between buttons
+
+                            /// ✅ **Message Button (Only for Premium Users)**
                             ElevatedButton(
-                              onPressed: () {
-                                // _openChatScreen(userID); // ✅ Open chat when clicking message button
-                              },
+                              onPressed: isPremiumUser
+                                  ? () {
+                                _openChatScreen(userID);
+                              }
+                                  : null, // Disable if user isn't premium
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey[200], // Different color for distinction
+                                backgroundColor: isPremiumUser ? Colors.black : Colors.grey[300],
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15), // Adjust padding
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
                               ),
-                              child: const Icon(
-                                Icons.message, // Message icon
-                                color: Colors.black,
-                                size: 24, // Adjust size if needed
+                              child: Icon(
+                                Icons.message,
+                                color: isPremiumUser ? Colors.white : Colors.grey,
+                                size: 24,
                               ),
                             ),
-                          ] else ...[ // ✅ If friends, show ONLY the Message button in rectangle
+                          ] else ...[
+                            /// ✅ **If Already Friends, Show "Message" Button**
                             ElevatedButton(
                               onPressed: () {
-                                _openChatScreen(userID); // ✅ Open chat when clicking message button
+                                _openChatScreen(userID);
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black, // Same style as "Connect +"
+                                backgroundColor: Colors.black,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -437,8 +499,8 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.message, color: Colors.white, size: 24), // Message icon
-                                  SizedBox(width: 8), // Space between icon and text
+                                  Icon(Icons.message, color: Colors.white, size: 24),
+                                  SizedBox(width: 8),
                                   Text(
                                     "Message",
                                     style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w600),
@@ -452,9 +514,6 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                     },
                   ),
                 ),
-
-
-
                 const SizedBox(height: 20),
               ],
             ),
@@ -464,48 +523,57 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
     );
   }
 
+
   Widget _buildSessionCard({
     required String name,
     required dynamic workoutTypes,
-    required dynamic workoutDays, // workoutDays (List or String)
-    required dynamic Workouttime, // workoutTime (List or String)
+    required dynamic workoutDays,
+    required dynamic workoutTime,
     required String location,
+    required String location_link,
     required String distance,
-    // required String level,
     required String userId,
-    required BuildContext context, // Pass BuildContext
+    required BuildContext context,
     required String bodyWeight,
   }) {
+    // ✅ Convert dynamic values to List<String>
     List<String> l_workoutType = (workoutTypes is List)
         ? workoutTypes.cast<String>()
         : (workoutTypes is String
-            ? workoutTypes.split(',').map((s) => s.trim()).toList()
-            : []);
+        ? workoutTypes.split(',').map((s) => s.trim()).toList()
+        : []);
 
     List<String> l_workoutDays = (workoutDays is List)
         ? workoutDays.cast<String>()
         : (workoutDays is String
-            ? workoutDays.split(',').map((s) => s.trim()).toList()
-            : []);
+        ? workoutDays.split(',').map((s) => s.trim()).toList()
+        : []);
 
-    List<String> l_workoutTimes = (Workouttime is List)
-        ? Workouttime.cast<String>()
-        : (Workouttime is String
-            ? Workouttime.split(',').map((s) => s.trim()).toList()
-            : []);
+    List<String> l_workoutTimes = (workoutTime is List)
+        ? workoutTime.cast<String>()
+        : (workoutTime is String
+        ? workoutTime.split(',').map((s) => s.trim()).toList()
+        : []);
+
+    // ✅ Get the logged-in user's workout details (Replace with actual data fetch)
+    List<String> myWorkoutTypes = global.g_workoutTypes ?? [];
+    List<String> myWorkoutDays = global.g_workoutDays ?? [];
+    List<String> myWorkoutTimes = global.g_workoutTimes ?? [];
+
+    // ✅ Calculate Match Score
+    int matchScore = _calculateMatchScore(
+      myWorkoutTypes,
+      myWorkoutDays,
+      myWorkoutTimes,
+      l_workoutType,
+      l_workoutDays,
+      l_workoutTimes,
+    );
 
     return GestureDetector(
       onTap: () {
         _showSessionDetailsBottomSheet(
-            context,
-            name,
-            l_workoutType,
-            l_workoutDays,
-            l_workoutTimes,
-            globalFunctions.truncateText(location, 4),
-            distance,
-            bodyWeight,
-            userId);
+            context, name, l_workoutType, l_workoutDays, l_workoutTimes, location, location_link, distance, bodyWeight, userId);
       },
       child: Card(
         color: Colors.white,
@@ -518,20 +586,23 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              /// ✅ Match Score Display
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Text(
-                  //   '$type • Regular',
-                  //   style: TextStyle(
-                  //     color: Colors.grey[600],
-                  //     fontSize: 14,
-                  //   ),
-                  // // ),
-                  // const Spacer(),
-                  // Icon(Icons.bookmark_border, color: Colors.grey[600]),
+                  Text(
+                    "Match Score: $matchScore%",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: matchScore >= 75 ? Colors.green : (matchScore >= 50 ? Colors.orange : Colors.red),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
+
+              /// ✅ Profile Section
               Row(
                 children: [
                   const CircleAvatar(
@@ -546,7 +617,7 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '$name | $workoutTypes',
+                          '$name | ${l_workoutType.join(", ")}',
                           style: const TextStyle(
                             color: Colors.black,
                             fontSize: 14,
@@ -554,13 +625,14 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
+
+                        /// ✅ Workout Days Display
                         Wrap(
                           spacing: 8.0,
                           runSpacing: 8.0,
                           children: l_workoutDays.map((day) {
                             return Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
                                 color: Colors.amber,
                                 borderRadius: BorderRadius.circular(12),
@@ -577,13 +649,14 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                           }).toList(),
                         ),
                         const SizedBox(height: 8),
+
+                        /// ✅ Workout Time Display
                         Wrap(
                           spacing: 8.0,
                           runSpacing: 8.0,
                           children: l_workoutTimes.map((t) {
                             return Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
                                 color: Colors.red[100],
                                 borderRadius: BorderRadius.circular(12),
@@ -591,8 +664,7 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.access_time,
-                                      size: 14, color: Colors.black),
+                                  Icon(Icons.access_time, size: 14, color: Colors.black),
                                   const SizedBox(width: 4),
                                   Text(
                                     t,
@@ -613,6 +685,8 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                 ],
               ),
               const SizedBox(height: 12),
+
+              /// ✅ Location & Distance
               Row(
                 children: [
                   Icon(Icons.location_on, color: Colors.grey[600], size: 16),
@@ -635,6 +709,7 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
     );
   }
 
+
   void _sendFriendRequest(String receiverId) async {
     String senderId = global.g_currentUserId; // Logged-in user ID
 
@@ -647,7 +722,7 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
 
     try {
       DocumentReference receiverRef =
-          FirebaseFirestore.instance.collection('users').doc(receiverId);
+      FirebaseFirestore.instance.collection('users').doc(receiverId);
 
       DocumentSnapshot receiverSnapshot = await receiverRef.get();
 
@@ -658,7 +733,13 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
         return;
       }
 
-      List<dynamic> friendRequests = receiverSnapshot['friendRequests'] ?? [];
+      // **Ensure "friendRequests" field exists**
+      Map<String, dynamic> receiverData =
+          receiverSnapshot.data() as Map<String, dynamic>? ?? {};
+
+      List<dynamic> friendRequests = receiverData.containsKey('friendRequests')
+          ? receiverData['friendRequests']
+          : []; // ✅ Default to an empty list if field is missing
 
       if (friendRequests.contains(senderId)) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -668,9 +749,9 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
       }
 
       // **Add sender's ID to recipient's "friendRequests" list**
-      await receiverRef.update({
+      await receiverRef.set({
         'friendRequests': FieldValue.arrayUnion([senderId]),
-      });
+      }, SetOptions(merge: true)); // ✅ Use merge to avoid overwriting existing data
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Friend request sent!")),
@@ -681,6 +762,44 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
         SnackBar(content: Text("Failed to send request.")),
       );
     }
+  }
+
+  List<String> _parseWorkoutData(dynamic data) {
+    if (data is List) {
+      return data.cast<String>(); // ✅ Directly return list
+    } else if (data is String) {
+      return data.split(',').map((s) => s.trim()).toList(); // ✅ Convert String to List
+    }
+    return []; // ✅ Return empty list if null
+  }
+
+
+  /// ✅ Function to Calculate Match Score
+  int _calculateMatchScore(
+      List<String> myWorkoutTypes,
+      List<String> myWorkoutDays,
+      List<String> myWorkoutTimes,
+      List<String> buddyWorkoutTypes,
+      List<String> buddyWorkoutDays,
+      List<String> buddyWorkoutTimes,
+      ) {
+    int totalCriteria = 3; // 3 things to compare: WorkoutTypes, Days, and Time
+    int matchedCriteria = 0;
+
+    // ✅ Check workout type matches
+    int typeMatches = buddyWorkoutTypes.where((type) => myWorkoutTypes.contains(type)).length;
+    if (typeMatches > 0) matchedCriteria++;
+
+    // ✅ Check workout days matches
+    int daysMatches = buddyWorkoutDays.where((day) => myWorkoutDays.contains(day)).length;
+    if (daysMatches > 0) matchedCriteria++;
+
+    // ✅ Check workout time matches
+    int timeMatches = buddyWorkoutTimes.where((time) => myWorkoutTimes.contains(time)).length;
+    if (timeMatches > 0) matchedCriteria++;
+
+    // ✅ Calculate match percentage
+    return ((matchedCriteria / totalCriteria) * 100).toInt();
   }
 
   /// Google Maps Functions START ///
@@ -930,7 +1049,6 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
     });
   }
 
-
   // Reverse geocode to get address from lat/lng
   Future<void> _getLocationFromLatLong(double lat, double lng) async {
     late String currentLocation;
@@ -1072,6 +1190,20 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
       } else {
         print('Error fetching suggestions: ${json['status']}');
       }
+    }
+  }
+
+  Future<void> _openGoogleMapsLink(String url) async {
+    // Uri uri = Uri.parse(url);
+    // if (await canLaunchUrl(uri)) {
+    //   await launchUrl(uri);
+    // } else {
+    //   throw 'Could not open Google Maps link: $url';
+    // }
+    if (await canLaunch(url)) {
+      await launch(url);
+    } else {
+      throw 'Could not open Google Maps link: $url';
     }
   }
 

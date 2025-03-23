@@ -80,11 +80,19 @@ class SpotBuddyApp extends StatelessWidget {
   }
 
   ThemeData _buildTheme(brightness) {
-    var baseTheme = ThemeData(brightness: brightness,scaffoldBackgroundColor: const Color(0xFFEFEFEF));
+    var baseTheme = ThemeData(
+      brightness: brightness,
+      scaffoldBackgroundColor: const Color(0xFFEFEFEF),
+    );
+
     return baseTheme.copyWith(
-      textTheme: GoogleFonts.latoTextTheme(baseTheme.textTheme),
+      textTheme: const TextTheme(
+        bodyMedium: TextStyle(fontFamily: "Lato", fontSize: 16,color: Colors.black),
+        titleLarge: TextStyle(fontFamily: "Lato", fontWeight: FontWeight.bold, fontSize: 20,color: Colors.black),
+      ),
     );
   }
+
 }
 
 class AuthenticationWrapper extends StatefulWidget {

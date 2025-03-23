@@ -204,7 +204,7 @@ class _ChatScreenState extends State<ChatScreen> {
               key: _textKey,
               child: TextFormField(
                 controller: _messageController,
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold,color: Colors.black),
                 decoration: InputDecoration(
                   hintText: 'Type your message...',
                   filled: true,
