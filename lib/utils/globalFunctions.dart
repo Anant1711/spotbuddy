@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -141,4 +142,26 @@ double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
   final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
   print("R * c = ${R*c}");
   return R * c; // Distance in kilometers
+}
+
+void navigateWithSlideAnimation(BuildContext context, Widget destination) {
+  Navigator.push(
+    context,
+    PageRouteBuilder(
+      transitionDuration: Duration(milliseconds: 400), // Adjust for smoothness
+      pageBuilder: (context, animation, secondaryAnimation) => destination,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        var begin = Offset(1.0, 0.0); // Start from the right
+        var end = Offset.zero; // End at the center
+        var curve = Curves.easeInOut; // Smooth easing
+        var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+        var offsetAnimation = animation.drive(tween);
+
+        return SlideTransition(
+          position: offsetAnimation,
+          child: child,
+        );
+      },
+    ),
+  );
 }

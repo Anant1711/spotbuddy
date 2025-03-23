@@ -4,4 +4,7 @@ String g_currentUserId = "";
 String g_currentUserEmailId = "";
 double g_currentUserLatitude = 0.0;
 double g_currentUserLongitude = 0.0;
+List<String> g_workoutTypes = [];
+List<String> g_workoutDays = [];
+List<String> g_workoutTimes = [];
 String g_Google_Maps_Api = "AIzaSyBGZSzuAflBURsF95Zuyx1rgWk7rsyEkWg";

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:spotbuddy/screens/user_profile_screen.dart';
 import 'ChatScreen.dart';
 import '../utils/globalFunctions.dart' as globalFunction;
 import '../utils/globalVariables.dart' as globalVariable;
@@ -130,16 +131,21 @@ class _MessagingScreenResponsiveState extends State<MessagingScreenResponsive> {
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                   trailing: Text(globalFunction.formatTimestamp(msg['timestamp'])),
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ChatScreen(
-                          currentUserId: currentUserId, // Pass logged-in user ID
-                          receiverId: msg['receiverId'],
-                          receiverName: receiverName,
-                        ),
-                      ),
-                    );
+                    globalFunction.navigateWithSlideAnimation(context,ChatScreen(
+                      currentUserId: currentUserId, // Pass logged-in user ID
+                      receiverId: msg['receiverId'],
+                      receiverName: receiverName,
+                    ),);
+                    // Navigator.push(
+                    //   context,
+                    //   MaterialPageRoute(
+                    //     builder: (context) => ChatScreen(
+                    //       currentUserId: currentUserId, // Pass logged-in user ID
+                    //       receiverId: msg['receiverId'],
+                    //       receiverName: receiverName,
+                    //     ),
+                    //   ),
+                    // );
                   },
                 );
               },
@@ -202,44 +208,83 @@ class _MessagingScreenResponsiveState extends State<MessagingScreenResponsive> {
 
                 // ✅ Ensure user document contains expected fields
                 String userName = user?['name'] ?? "Unknown User";
-                String workoutType = user?['workoutTypes'] ?? "Unknown";
+
+                // ✅ Handle 'workoutTypes' as String OR List
+                var workoutTypeData = user?['workoutTypes'];
+                String workoutType = "";
+
+                if (workoutTypeData is String) {
+                  workoutType = workoutTypeData; // ✅ Direct String value
+                } else if (workoutTypeData is List) {
+                  workoutType = workoutTypeData.join(", "); // ✅ Convert List to comma-separated String
+                } else {
+                  workoutType = "Unknown"; // ✅ Default fallback
+                }
 
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 24,
-                          // backgroundImage: user?['profileImage'] != null
-                          //     ? NetworkImage(user!['profileImage'])
-                          //     : AssetImage('assets/default-profile.png') as ImageProvider,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                  color: Colors.grey[100],
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // ✅ Rounded corners
+                  child: InkWell(
+                    onTap: () {
+                      print("Tapped on ${user?['name']}");
+                      globalFunction.navigateWithSlideAnimation(context, OtherUserProfileScreen(userId: senderId));
+                    },
+                    borderRadius: BorderRadius.circular(12), // ✅ Ripple effect on tap
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center, // ✅ Center-align contents
+                        children: [
+                          /// ✅ **User Avatar & Name**
+                          Row(
                             children: [
-                              Text(userName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                              Text(workoutType, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+                              CircleAvatar(
+                                radius: 30,
+                                backgroundImage: NetworkImage(user?['profileImage'] ?? 'https://default-image.com'),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  userName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                              ),
                             ],
                           ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.check, color: Colors.green),
-                          onPressed: () => _acceptFriendRequest(senderId),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.close, color: Colors.red),
-                          onPressed: () => _rejectFriendRequest(senderId),
-                        ),
-                      ],
+
+                          const Divider(height: 20, thickness: 1), // ✅ Adds a separator line
+
+                          /// ✅ **Accept & Decline Buttons (Side-by-side)**
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              TextButton(
+                                onPressed: () => _acceptFriendRequest(senderId),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.green, textStyle: const TextStyle(fontSize: 20),
+                                ),
+                                child: const Text("Let's Workout"),
+                              ),
+                              TextButton(
+                                onPressed: () => _rejectFriendRequest(senderId),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.red, textStyle: const TextStyle(fontSize: 20),
+                                ),
+                                child: const Text("Decline"),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
+
+
               },
             );
+
           },
         );
       },
@@ -299,4 +344,6 @@ class _MessagingScreenResponsiveState extends State<MessagingScreenResponsive> {
       },
     );
   }
+
+
 }
