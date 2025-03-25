@@ -4,6 +4,7 @@ import 'package:another_flushbar/flushbar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:spotbuddy/screens/user_profile_screen.dart';
 import 'package:spotbuddy/services/NetworkUtitliy.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
@@ -29,6 +30,9 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
   String _currentLocation = "Set Location";
   final TextEditingController _locationController = TextEditingController();
   bool isLoading = false; // Tracks whether location fetching is in progress
+  String profileImageUrl = ""; // Store profile picture URL
+  bool isProfileImageLoading = true; // Track loading state
+  Map<String, String> profileImageCache = {}; // 🔥 Cache to store profile images for multiple users
   /// ************************ Variables ************************ ///
 
   Future<void> fetchCurrentLocation() async {
@@ -42,6 +46,7 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
   void initState() {
     super.initState();
     fetchCurrentLocation();
+    _fetchProfileImage(global.g_currentUserId);
   }
 
   GlobalKey<ScaffoldState> _findbuddyscaffoldKey = GlobalKey<ScaffoldState>();
@@ -63,13 +68,28 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
           },
           child: Padding(
             padding: const EdgeInsets.only(left: 20),
-            child: CircleAvatar(
-              backgroundImage: const NetworkImage(
-                'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-QPO2xJvrscRL3kyQNn5zG50lODp82k.png',
-              ),
+            child: FutureBuilder<String>(
+              future: _fetchProfileImage(global.g_currentUserId), // Fetch profile image
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const CircleAvatar(
+                    backgroundColor: Colors.grey, // ✅ Placeholder while loading
+                    child: Icon(Icons.person, color: Colors.white),
+                  );
+                }
+
+                String imageUrl = snapshot.data ?? "assets/profile.png"; // ✅ Fallback if null
+
+                return CircleAvatar(
+                  backgroundImage: imageUrl.startsWith("http")
+                      ? NetworkImage(imageUrl)
+                      : AssetImage("assets/profile.png") as ImageProvider, // ✅ Handles both network & local images
+                );
+              },
             ),
           ),
         ),
+
         actions: [
           TextButton(
             onPressed: () {
@@ -555,7 +575,7 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
         ? workoutTime.split(',').map((s) => s.trim()).toList()
         : []);
 
-    // ✅ Get the logged-in user's workout details (Replace with actual data fetch)
+    // ✅ Get the logged-in user's workout details
     List<String> myWorkoutTypes = global.g_workoutTypes ?? [];
     List<String> myWorkoutDays = global.g_workoutDays ?? [];
     List<String> myWorkoutTimes = global.g_workoutTimes ?? [];
@@ -572,8 +592,25 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
 
     return GestureDetector(
       onTap: () {
-        _showSessionDetailsBottomSheet(
-            context, name, l_workoutType, l_workoutDays, l_workoutTimes, location, location_link, distance, bodyWeight, userId);
+        // _showSessionDetailsBottomSheet(
+        //   context,
+        //   name,
+        //   l_workoutType,
+        //   l_workoutDays,
+        //   l_workoutTimes,
+        //   location,
+        //   location_link,
+        //   distance,
+        //   bodyWeight,
+        //   userId,
+        // );
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OtherUserProfileScreen(userId: userId),
+          ),
+        );
+
       },
       child: Card(
         color: Colors.white,
@@ -595,7 +632,9 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: matchScore >= 75 ? Colors.green : (matchScore >= 50 ? Colors.orange : Colors.red),
+                      color: matchScore >= 75
+                          ? Colors.green
+                          : (matchScore >= 50 ? Colors.orange : Colors.red),
                     ),
                   ),
                 ],
@@ -605,13 +644,23 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
               /// ✅ Profile Section
               Row(
                 children: [
-                  const CircleAvatar(
-                    radius: 20,
-                    backgroundImage: NetworkImage(
-                      'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-QPO2xJvrscRL3kyQNn5zG50lODp82k.png',
-                    ),
+                  /// ✅ Fetch & Display Profile Picture
+                  FutureBuilder<String>(
+                    future: _fetchProfileImage(userId), // Fetch profile image dynamically
+                    builder: (context, snapshot) {
+                      String imageUrl = snapshot.data ?? "assets/profile.png"; // ✅ Default if null
+
+                      return CircleAvatar(
+                        radius: 20,
+                        backgroundImage: imageUrl.startsWith("http")
+                            ? NetworkImage(imageUrl)
+                            : AssetImage(imageUrl) as ImageProvider,
+                      );
+                    },
                   ),
+
                   const SizedBox(width: 12),
+
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -632,7 +681,8 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                           runSpacing: 8.0,
                           children: l_workoutDays.map((day) {
                             return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
                                 color: Colors.amber,
                                 borderRadius: BorderRadius.circular(12),
@@ -656,7 +706,8 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                           runSpacing: 8.0,
                           children: l_workoutTimes.map((t) {
                             return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
                                 color: Colors.red[100],
                                 borderRadius: BorderRadius.circular(12),
@@ -664,7 +715,8 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.access_time, size: 14, color: Colors.black),
+                                  Icon(Icons.access_time,
+                                      size: 14, color: Colors.black),
                                   const SizedBox(width: 4),
                                   Text(
                                     t,
@@ -800,6 +852,32 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
 
     // ✅ Calculate match percentage
     return ((matchedCriteria / totalCriteria) * 100).toInt();
+  }
+
+  /// ✅ **Fetch Profile Image from Firestore**
+
+  Future<String> _fetchProfileImage(String userID) async {
+    try {
+      if (profileImageCache.containsKey(userID)) {
+        return profileImageCache[userID]!; // ✅ Return cached image if available
+      }
+
+      DocumentSnapshot snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userID)
+          .get();
+
+      String imageUrl = snapshot.exists && snapshot['profilePicture'] != null
+          ? snapshot['profilePicture']
+          : "assets/profile.png"; // ✅ Default local asset if missing
+
+      profileImageCache[userID] = imageUrl; // ✅ Store in cache
+
+      return imageUrl;
+    } catch (e) {
+      print("🚨 Error fetching profile image: $e");
+      return "assets/profile.png"; // ✅ Fallback image in case of error
+    }
   }
 
   /// Google Maps Functions START ///

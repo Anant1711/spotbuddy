@@ -1,6 +1,11 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:intl/intl.dart';
 import '../utils/globalVariables.dart' as globalVariable;
 
 class MyProfileScreen extends StatefulWidget {
@@ -14,13 +19,34 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   final GlobalKey<ScaffoldState> _profileScaffoldKey = GlobalKey<ScaffoldState>();
 
   String? currentUserId;
+  Map<String, dynamic> userData = {};
+  final ImagePicker _picker = ImagePicker();
+  bool isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _fetchCurrentUserId();
+    _fetchUserData();
   }
 
+  Future<void> _fetchUserData() async {
+    String userId = globalVariable.g_currentUserId; // 🔥 Replace with actual user ID from Firebase Auth
+    try {
+      DocumentSnapshot snapshot = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      if (snapshot.exists) {
+        setState(() {
+          userData = snapshot.data() as Map<String, dynamic>;
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("Error fetching user data: $e");
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
   /// ✅ **Fetch Current User ID**
   void _fetchCurrentUserId() {
     User? user = FirebaseAuth.instance.currentUser;
@@ -28,6 +54,44 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       setState(() {
         currentUserId = user.uid;
       });
+    }
+  }
+
+  /// ✅ **Pick Image from Gallery & Upload to Firebase**
+  Future<void> _changeProfilePicture() async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile == null) return;
+
+      File file = File(pickedFile.path);
+      String userId = globalVariable.g_currentUserId; // Replace with actual user ID
+      String filePath = "user_photos/$userId/profile.jpg";
+
+      Reference ref = FirebaseStorage.instance.ref().child(filePath);
+      UploadTask uploadTask = ref.putFile(file);
+
+      setState(() => isLoading = true);
+      TaskSnapshot snapshot = await uploadTask;
+      String downloadUrl = await snapshot.ref.getDownloadURL();
+
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        'profilePicture': downloadUrl,
+      });
+
+      setState(() {
+        userData['profilePicture'] = downloadUrl;
+        isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Profile picture updated successfully!')),
+      );
+    } catch (e) {
+      print("🚨 Error updating profile picture: $e");
+      setState(() => isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update profile picture.')),
+      );
     }
   }
 
@@ -40,236 +104,12 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     }
 
     return Scaffold(
-      key: _profileScaffoldKey,
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        title: Text('My Profile',style: TextStyle(color: Colors.white),),
+        backgroundColor: Colors.black,
         elevation: 0,
-        title: const Text(
-          'Profile',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit, color: Colors.black),
-            onPressed: () {
-              // TODO: Implement edit profile functionality
-            },
-          ),
-        ],
       ),
-      body: SingleChildScrollView(
-        child: StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance.collection('users').doc(currentUserId).snapshots(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return Center(child: CircularProgressIndicator());
-            }
-            if (!snapshot.data!.exists) {
-              return Center(child: Text("User not found"));
-            }
-
-            var userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-
-            return Column(
-              children: [
-                const SizedBox(height: 20),
-                CircleAvatar(
-                  radius: 50,
-                  backgroundImage: NetworkImage(
-                    userData['profileImage'] ?? 'https://default.com/profile.png',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  userData['name'] ?? 'Unknown User',
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  userData['bio'] ?? 'Fitness Enthusiast',
-                  style: const TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildStatColumn('Workouts', userData['workouts']?.toString() ?? '0'),
-                    _buildStatColumn('Buddies', userData['buddies']?.toString() ?? '0'),
-                    _buildStatColumn('Karma', userData['karma']?.toString() ?? '0'),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                _buildSectionTitle('My Achievements'),
-                _buildAchievementsList(userData['achievements']),
-                const SizedBox(height: 20),
-                _buildSectionTitle('Fitness Goals'),
-                _buildGoalsList(userData['goals']),
-              ],
-            );
-          },
-        ),
-      ),
-      bottomNavigationBar: _buildBottomNavBar(),
-    );
-  }
-
-  /// ✅ **Build Stats Column**
-  Widget _buildStatColumn(String title, String value) {
-    return Column(
-      children: [
-        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        Text(title, style: const TextStyle(fontSize: 14, color: Colors.grey)),
-      ],
-    );
-  }
-
-  /// ✅ **Build Section Title**
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
-
-  /// ✅ **Build Achievements List**
-  Widget _buildAchievementsList(dynamic achievements) {
-    if (achievements == null || achievements.isEmpty) {
-      return Center(child: Text("No Achievements Yet", style: TextStyle(color: Colors.grey)));
-    }
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: achievements.length,
-      itemBuilder: (context, index) {
-        var achievement = achievements[index] as Map<String, dynamic>;
-        return ListTile(
-          leading: Icon(Icons.emoji_events, color: Colors.amber),
-          title: Text(achievement['title'] ?? "Unknown Achievement"),
-          subtitle: Text(achievement['date'] ?? "No Date"),
-        );
-      },
-    );
-  }
-
-  /// ✅ **Build Goals List**
-  Widget _buildGoalsList(dynamic goals) {
-    if (goals == null || goals.isEmpty) {
-      return Center(child: Text("No Goals Set 🎯", style: TextStyle(color: Colors.grey)));
-    }
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: goals.length,
-      itemBuilder: (context, index) {
-        var goal = goals[index] as Map<String, dynamic>;
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(goal['title'] ?? "No Goal"),
-              const SizedBox(height: 4),
-              LinearProgressIndicator(
-                value: (goal['progress'] ?? 0.0).toDouble(),
-                backgroundColor: Colors.grey[300],
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// ✅ **Build Bottom Navigation Bar**
-  Widget _buildBottomNavBar() {
-    return BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,
-      currentIndex: 3,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-        BottomNavigationBarItem(icon: Icon(Icons.handshake_outlined), label: 'GymBuddy'),
-        BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Message'),
-        BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
-      ],
-      onTap: (index) {
-        if (index == 0) {
-          Navigator.popAndPushNamed(context, '/home');
-        } else if (index == 1) {
-          Navigator.popAndPushNamed(context, '/findbuddy');
-        } else if (index == 2) {
-          Navigator.popAndPushNamed(context, '/messagescreen');
-        }
-      },
-    );
-  }
-}
-
-//TODO: New UI
-/*
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-
-class MyProfileScreen extends StatefulWidget {
-  const MyProfileScreen({Key? key}) : super(key: key);
-
-  @override
-  _MyProfileScreenState createState() => _MyProfileScreenState();
-}
-
-class _MyProfileScreenState extends State<MyProfileScreen> {
-  bool isLoading = false;
-
-  // Dummy user data for my profile
-  final Map<String, dynamic> userData = {
-    'name': 'John Smith',
-    'status': 'Fitness Enthusiast',
-    'profilePicture':
-    'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-QPO2xJvrscRL3kyQNn5zG50lODp82k.png',
-    'karma': 450,
-    'workouts': 120,
-    'buddies': 25,
-    'bio':
-    'Passionate about fitness and helping others achieve their goals. I love weight training and running marathons on weekends.',
-    'workoutTypes': ['Weight Training', 'Cardio', 'HIIT'],
-    'preferredWorkoutTime': 'Evening',
-    'gym_experience': '3',
-    'gym_location': 'Fitness First, Downtown',
-    'weight': '75',
-    'height': '180',
-    'machine_weights': [
-      {'exercise_name': 'Bench Press', 'weight': '85'},
-      {'exercise_name': 'Squat', 'weight': '120'},
-      {'exercise_name': 'Deadlift', 'weight': '140'},
-    ],
-    'email': 'john.smith@example.com',
-    'memberSince': 'January 2023',
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      // appBar: AppBar(
-      //   title: Text('My Profile'),
-      //   backgroundColor: Colors.black,
-      //   elevation: 0,
-      //   actions: [
-      //     IconButton(
-      //       icon: Icon(Icons.settings),
-      //       onPressed: () {
-      //         ScaffoldMessenger.of(context).showSnackBar(
-      //           SnackBar(content: Text('Settings coming soon')),
-      //         );
-      //       },
-      //     ),
-      //   ],
-      // ),
       body: isLoading
           ? Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -281,36 +121,18 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             _buildInfoSection('About'),
             _buildWorkoutPreferences(),
             _buildGymStats(),
-            _buildRecentActivity(),
+            // _buildRecentActivity(),  //TODO
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: 3, // Profile tab
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.handshake_outlined), label: 'GymBuddy'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.chat_bubble_outline), label: 'Message'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline), label: 'Profile'),
-        ],
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.popAndPushNamed(context, '/home');
-          } else if (index == 1) {
-            Navigator.popAndPushNamed(context, '/findbuddy');
-          } else if (index == 2) {
-            Navigator.popAndPushNamed(context, '/messages');
-          }
-        },
-      ),
+      bottomNavigationBar: _buildBottomNavBar(),
     );
   }
-
   Widget _buildProfileHeader() {
+    ImageProvider profileImage = userData['profilePicture'] != null &&
+        userData['profilePicture'].isNotEmpty
+        ? NetworkImage(userData['profilePicture'])
+        : AssetImage('assets/profile.png') as ImageProvider; // ✅ Default image
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -326,11 +148,10 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             alignment: Alignment.bottomRight,
             children: [
               CircleAvatar(
-                radius: 60,
-                backgroundColor: Colors.grey[300],
-                backgroundImage: NetworkImage(
-                  userData['profilePicture'],
-                ),
+                radius: 70,
+                backgroundColor: Colors.white,
+                backgroundImage: profileImage
+
               ),
               Container(
                 decoration: BoxDecoration(
@@ -348,9 +169,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                 child: IconButton(
                   icon: Icon(Icons.camera_alt, color: Colors.black, size: 20),
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Change profile picture')),
-                    );
+                    _changeProfilePicture();
                   },
                 ),
               ),
@@ -358,7 +177,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
           ),
           SizedBox(height: 16),
           Text(
-            userData['name'],
+            globalVariable.g_currentUsername ?? "Unknown", // ✅ Fetching from Firestore with fallback
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -367,7 +186,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
           ),
           SizedBox(height: 8),
           Text(
-            userData['status'],
+            userData['status'] ?? "No status available", // ✅ Fetching from Firestore with fallback
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey[400],
@@ -377,17 +196,18 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildStatItem('${userData['karma']}', 'Karma'),
+              _buildStatItem('${userData['karma'] ?? 0}', 'Karma'), // ✅ Default to 0 if missing
               SizedBox(width: 24),
-              _buildStatItem('${userData['workouts']}', 'Workouts'),
+              _buildStatItem('${userData['workouts'] ?? 0}', 'Workouts'), // ✅ Default to 0
               SizedBox(width: 24),
-              _buildStatItem('${userData['buddies']}', 'Buddies'),
+              _buildStatItem('${userData['buddies'] ?? 0}', 'Buddies'), // ✅ Default to 0
             ],
           ),
         ],
       ),
     );
   }
+
 
   Widget _buildStatItem(String value, String label) {
     return Column(
@@ -489,7 +309,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             ],
           ),
           Text(
-            userData['bio'],
+            userData['bio'] ?? "No Bio",
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey[700],
@@ -501,7 +321,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
               Icon(Icons.email, color: Colors.grey[700], size: 20),
               SizedBox(width: 8),
               Text(
-                userData['email'],
+                globalVariable.g_currentUserEmailId ?? 'No Email',
                 style: TextStyle(fontSize: 16),
               ),
             ],
@@ -523,8 +343,16 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   }
 
   Widget _buildWorkoutPreferences() {
-    List<String> workoutTypes = List<String>.from(userData['workoutTypes']);
-    String preferredTime = userData['preferredWorkoutTime'];
+    List<String> workoutTypes = userData['workoutTypes'] != null
+        ? List<String>.from(userData['workoutTypes'] as List<dynamic>)
+        : []; // ✅ Default to empty list if null
+
+    String preferredTime = userData['workoutTime'] is String
+        ? userData['workoutTime']
+        : (userData['workoutTime'] is List<dynamic>)
+        ? (userData['workoutTime'] as List<dynamic>).join(", ")
+        : "N/A"; // ✅ Default to "N/A" if null
+
 
     return Padding(
       padding: EdgeInsets.all(16),
@@ -594,6 +422,11 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   }
 
   Widget _buildGymStats() {
+    // ✅ Handle `machine_weights` safely
+    List<Map<String, dynamic>> machineWeights = (userData['machine_weights'] ?? [])
+        .map<Map<String, dynamic>>((weight) => Map<String, dynamic>.from(weight))
+        .toList();
+
     return Padding(
       padding: EdgeInsets.all(16),
       child: Column(
@@ -623,86 +456,83 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
           _buildStatRow(
             Icons.fitness_center,
             'Experience',
-            '${userData['gym_experience']} years',
+            '${userData['gym_experience'] ?? "N/A"} years',
           ),
           SizedBox(height: 12),
           _buildStatRow(
             Icons.location_on,
             'Gym Location',
-            userData['gym_location'],
+            userData['gym_location'] ?? "No Location",
           ),
           SizedBox(height: 12),
           _buildStatRow(
             Icons.monitor_weight,
             'Weight',
-            '${userData['weight']} kg',
+            '${userData['weight'] ?? "N/A"} kg',
           ),
           SizedBox(height: 12),
           _buildStatRow(
             Icons.height,
             'Height',
-            '${userData['height']} cm',
+            '${userData['height'] ?? "N/A"} cm',
           ),
 
-          // Machine weights section
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Personal Records',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+          // ✅ Show "Personal Records" only if machine weights exist
+          if (machineWeights.isNotEmpty) ...[
+            SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Personal Records',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
-                  IconButton(
-                    icon: Icon(Icons.add, size: 18),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Add record coming soon')),
-                      );
-                    },
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
-              ...List<Map<String, dynamic>>.from(userData['machine_weights'])
-                  .map((weight) => Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(weight['exercise_name']),
-                    Row(
-                      children: [
-                        Text(
-                          '${weight['weight']} kg',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.edit, size: 16),
-                          padding: EdgeInsets.zero,
-                          constraints: BoxConstraints(),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content:
-                                  Text('Edit record coming soon')),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
                 ),
-              ))
-                  .toList(),
-            ],
-          ),
+                IconButton(
+                  icon: Icon(Icons.add, size: 18),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Add record coming soon')),
+                    );
+                  },
+                ),
+              ],
+            ),
+            SizedBox(height: 8),
+            Column(
+              children: machineWeights.map((weight) {
+                return Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(weight['exercise_name'] ?? "Unknown Exercise"),
+                      Row(
+                        children: [
+                          Text(
+                            '${weight['weight'] ?? "N/A"} kg',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.edit, size: 16),
+                            padding: EdgeInsets.zero,
+                            constraints: BoxConstraints(),
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Edit record coming soon')),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ]
         ],
       ),
     );
@@ -730,7 +560,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       ],
     );
   }
-
   Widget _buildRecentActivity() {
     // Dummy activity data
     final activities = [
@@ -786,7 +615,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       ),
     );
   }
-
   Widget _buildActivityItem(String type, String description, DateTime time) {
     IconData icon;
     Color iconColor;
@@ -849,5 +677,27 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       ),
     );
   }
+  /// ✅ **Build Bottom Navigation Bar**
+  Widget _buildBottomNavBar() {
+    return BottomNavigationBar(
+      type: BottomNavigationBarType.fixed,
+      currentIndex: 3,
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+        BottomNavigationBarItem(icon: Icon(Icons.handshake_outlined), label: 'GymBuddy'),
+        BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Message'),
+        BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
+      ],
+      onTap: (index) {
+        if (index == 0) {
+          Navigator.popAndPushNamed(context, '/home');
+        } else if (index == 1) {
+          Navigator.popAndPushNamed(context, '/findbuddy');
+        } else if (index == 2) {
+          Navigator.popAndPushNamed(context, '/messagescreen');
+        }
+      },
+    );
+  }
+
 }
-*/

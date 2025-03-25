@@ -165,3 +165,4 @@ void navigateWithSlideAnimation(BuildContext context, Widget destination) {
     ),
   );
 }
+
