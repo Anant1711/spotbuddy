@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import '../utils/globalVariables.dart' as globalVariable;
 
 class MyProfileScreen extends StatefulWidget {
@@ -261,9 +262,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
           Expanded(
             child: ElevatedButton.icon(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Share profile coming soon')),
-                );
+                _shareProfileLink();
               },
               icon: Icon(Icons.share, color: Colors.black),
               label:
@@ -454,25 +453,25 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
           ),
           SizedBox(height: 16),
           _buildStatRow(
-            Icons.fitness_center,
+            'exp.png',
             'Experience',
             '${userData['gym_experience'] ?? "N/A"} years',
           ),
           SizedBox(height: 12),
           _buildStatRow(
-            Icons.location_on,
+            'pin.png',
             'Gym Location',
             userData['gym_location'] ?? "No Location",
           ),
           SizedBox(height: 12),
           _buildStatRow(
-            Icons.monitor_weight,
+            'weight.png',
             'Weight',
             '${userData['weight'] ?? "N/A"} kg',
           ),
           SizedBox(height: 12),
           _buildStatRow(
-            Icons.height,
+            "height.png",
             'Height',
             '${userData['height'] ?? "N/A"} cm',
           ),
@@ -538,10 +537,16 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     );
   }
 
-  Widget _buildStatRow(IconData icon, String label, String value) {
+  Widget _buildStatRow(String iconPath, String label, String value) {
+    String icon= "assets/${iconPath}";
     return Row(
       children: [
-        Icon(icon, color: Colors.grey[700], size: 20),
+        Image.asset(
+          icon,
+          width: 25,  // Adjust size as needed
+          height: 25,
+          // Apply tint if needed
+        ),
         SizedBox(width: 8),
         Text(
           '$label: ',
@@ -560,6 +565,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       ],
     );
   }
+
   Widget _buildRecentActivity() {
     // Dummy activity data
     final activities = [
@@ -698,6 +704,11 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         }
       },
     );
+  }
+
+  void _shareProfileLink() {
+    String profileLink = "https://yourapp.com/profile/${globalVariable.g_currentUserId}"; // Change this with your actual profile link
+    Share.share("Check out my profile: $profileLink");
   }
 
 }

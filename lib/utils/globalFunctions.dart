@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../utils/globalVariables.dart' as global;
 import 'dart:convert';
@@ -124,6 +125,19 @@ Future<void> signOutGoogle() async {
     print("User signed out from Google and Firebase.");
   } catch (e) {
     print("Error signing out: $e");
+  }
+}
+Future<void> openGoogleMapsLink(String url) async {
+  // Uri uri = Uri.parse(url);
+  // if (await canLaunchUrl(uri)) {
+  //   await launchUrl(uri);
+  // } else {
+  //   throw 'Could not open Google Maps link: $url';
+  // }
+  if (await canLaunch(url)) {
+    await launch(url);
+  } else {
+    throw 'Could not open Google Maps link: $url';
   }
 }
 double _degToRad(double deg) {

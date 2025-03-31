@@ -317,7 +317,7 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
           Expanded(
             child: InkWell(
               onTap: () {
-                _openGoogleMapsLink(link);
+                globalFunctions.openGoogleMapsLink(link);
               },
               child: Text(value,style: TextStyle(color: Colors.lightBlueAccent),),
             ),
@@ -432,7 +432,7 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
                     ),
                     Flexible( // ✅ Prevents overflow
                       child: InkWell(
-                        onTap: () => _openGoogleMapsLink(location_link), // ✅ Clickable Link
+                        onTap: () => globalFunctions.openGoogleMapsLink(location_link), // ✅ Clickable Link
                         child: Text(
                           location,
                           style: TextStyle(color: Colors.blue),
@@ -1271,19 +1271,6 @@ class _GymBuddyScreenState extends State<GymBuddyScreen> {
     }
   }
 
-  Future<void> _openGoogleMapsLink(String url) async {
-    // Uri uri = Uri.parse(url);
-    // if (await canLaunchUrl(uri)) {
-    //   await launchUrl(uri);
-    // } else {
-    //   throw 'Could not open Google Maps link: $url';
-    // }
-    if (await canLaunch(url)) {
-      await launch(url);
-    } else {
-      throw 'Could not open Google Maps link: $url';
-    }
-  }
 
   /// Google Maps Function END ///
 }

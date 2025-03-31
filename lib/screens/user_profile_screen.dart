@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:spotbuddy/utils/globalFunctions.dart' as globalFunctions;
 import 'package:spotbuddy/utils/globalVariables.dart' as global;
 import 'ChatScreen.dart';
+import 'package:share_plus/share_plus.dart';
 
 class OtherUserProfileScreen extends StatefulWidget {
   final String userId;
@@ -79,9 +80,10 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: Icon(Icons.more_vert),
+            icon: Icon(Icons.ios_share,color: Colors.white,),
             onPressed: () {
-              _showOptionsMenu(context);
+              // _showOptionsMenu(context);
+              _shareProfileLink();
             },
           ),
         ],
@@ -94,9 +96,9 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
                 children: [
                   _buildProfileHeader(),
                   _buildActionButtons(),
-                  // _buildInfoSection('About'),
-                  // _buildWorkoutPreferences(),
-                  // _buildGymStats(),
+                  _buildInfoSection('About'),
+                  _buildWorkoutPreferences(),
+                  _buildGymStats(),
                   // _buildRecentActivity(),
                 ],
               ),
@@ -241,6 +243,320 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
     );
   }
 
+  Widget _buildInfoSection(String title) {
+    return Padding(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.edit, size: 18),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Edit bio coming soon')),
+                  );
+                },
+              ),
+            ],
+          ),
+          Text(
+            userData['bio'] ?? "No Bio",
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[700],
+            ),
+          ),
+          SizedBox(height: 16),
+          Row(
+            children: [
+              Icon(Icons.email, color: Colors.grey[700], size: 20),
+              SizedBox(width: 8),
+              Text(
+                userData['email'] ?? 'No Email',
+                style: TextStyle(fontSize: 16),
+              ),
+            ],
+          ),
+          SizedBox(height: 8),
+          // Row(
+          //   children: [
+          //     Icon(Icons.calendar_today, color: Colors.grey[700], size: 20),
+          //     SizedBox(width: 8),
+          //     Text(
+          //       'Member since: ${userData['memberSince']}',
+          //       style: TextStyle(fontSize: 16),
+          //     ),
+          //   ],
+          // ),
+        ],
+      ),
+    );
+  }
+  Widget _buildWorkoutPreferences() {
+    List<String> workoutTypes = userData['workoutTypes'] != null
+        ? List<String>.from(userData['workoutTypes'] as List<dynamic>)
+        : []; // ✅ Default to empty list if null
+
+    String preferredTime = userData['workoutTime'] is String
+        ? userData['workoutTime']
+        : (userData['workoutTime'] is List<dynamic>)
+        ? (userData['workoutTime'] as List<dynamic>).join(", ")
+        : "N/A"; // ✅ Default to "N/A" if null
+
+
+    return Padding(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Workout Preferences',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.edit, size: 18),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Edit preferences coming soon')),
+                  );
+                },
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          Row(
+            children: [
+              Icon(Icons.access_time, color: Colors.grey[700]),
+              SizedBox(width: 8),
+              Text(
+                'Preferred Time: ',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              Text(
+                preferredTime,
+                style: TextStyle(fontSize: 16),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Workout Types:',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: workoutTypes
+                .map((type) => Chip(
+              label: Text(type),
+              backgroundColor: Colors.grey[200],
+            ))
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGymStats() {
+    // ✅ Handle `machine_weights` safely
+    List<Map<String, dynamic>> machineWeights = (userData['machine_weights'] ?? [])
+        .map<Map<String, dynamic>>((weight) => Map<String, dynamic>.from(weight))
+        .toList();
+
+    return Padding(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Gym Stats',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.edit, size: 18),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Edit stats coming soon')),
+                  );
+                },
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          _buildStatRow(
+            'exp.png',
+            'Experience',
+            '${userData['gym_experience'] ?? "N/A"} years',
+          ),
+          SizedBox(height: 12),
+          _buildStatRowForLocation(
+            'Gym Location',
+            userData['gym_location'] ?? "No Location",
+            userData['gym_location_link'] ?? "na",
+          ),
+          SizedBox(height: 12),
+          _buildStatRow(
+            'weight.png',
+            'Weight',
+            '${userData['weight'] ?? "N/A"} kg',
+          ),
+          SizedBox(height: 12),
+          _buildStatRow(
+            "height.png",
+            'Height',
+            '${userData['height'] ?? "N/A"} cm',
+          ),
+
+          // ✅ Show "Personal Records" only if machine weights exist
+          if (machineWeights.isNotEmpty) ...[
+            SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Personal Records',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.add, size: 18),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Add record coming soon')),
+                    );
+                  },
+                ),
+              ],
+            ),
+            SizedBox(height: 8),
+            Column(
+              children: machineWeights.map((weight) {
+                return Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(weight['exercise_name'] ?? "Unknown Exercise"),
+                      Row(
+                        children: [
+                          Text(
+                            '${weight['weight'] ?? "N/A"} kg',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.edit, size: 16),
+                            padding: EdgeInsets.zero,
+                            constraints: BoxConstraints(),
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Edit record coming soon')),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatRow(String iconPath, String label, String value) {
+    String icon= "assets/${iconPath}";
+    return Row(
+      children: [
+        Image.asset(
+          icon,
+          width: 25,  // Adjust size as needed
+          height: 25,
+           // Apply tint if needed
+        ),
+        SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(fontSize: 16),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+  Widget _buildStatRowForLocation(String label, String value, String link) {
+    String icon= "assets/pin.png";
+    return Row(
+      children: [
+        Image.asset(
+          icon,
+          width: 25,  // Adjust size as needed
+          height: 25,
+          // Apply tint if needed
+        ),
+        SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        Expanded(
+          child: InkWell(
+            onTap: () {
+              globalFunctions.openGoogleMapsLink(link);
+            },
+            child: Text(globalFunctions.truncateText(value,4),style: TextStyle(decoration: TextDecoration.underline),),
+          ),
+        )
+      ],
+    );
+  }
+
+
   void _openChatScreen(String receiverId) {
     Navigator.push(
       context,
@@ -254,20 +570,9 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
     );
   }
 
-  void _showOptionsMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return ListTile(
-          leading: Icon(Icons.report),
-          title: Text('Report User'),
-          onTap: () {
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context)
-                .showSnackBar(SnackBar(content: Text('Report submitted')));
-          },
-        );
-      },
-    );
+  void _shareProfileLink() {
+    String profileLink = "https://yourapp.com/profile/${widget.userId}"; // Change this with your actual profile link
+    Share.share("Check out this profile: $profileLink");
   }
+
 }
